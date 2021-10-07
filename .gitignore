@@ -1,3 +1,16 @@
+# Todo file
+TODO
+
+# Externals
+externals/*
+
+# Image files
+*.pgm
+*.ppm
+*.png
+*.jpg
+*.scn
+
 # Prerequisites
 *.d
 
@@ -35,6 +48,7 @@
 *.i*86
 *.x86_64
 *.hex
+bin/*
 
 # Debug files
 *.dSYM/
