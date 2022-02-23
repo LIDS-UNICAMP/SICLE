@@ -34,14 +34,6 @@ typedef enum ift_sicle_arccost_opt
   IFT_SICLE_ARCCOST_DYN, // Dynamic arc-cost estimation
 } iftSICLEArcCost;
 
-/* Contains all the seed preservation curves avaliable */
-typedef enum ift_sicle_curve
-{
-  IFT_SICLE_CURVE_EXP, // Exponential curve
-  IFT_SICLE_CURVE_LIN, // Linear curve
-  IFT_SICLE_CURVE_PARAB, // Parabola curve
-} iftSICLECurve;
-
 /* 
   Contains all the seed removal criterion avaliable. If a saliency map is 
   provided, then they become object-based (except random removal) 
@@ -78,11 +70,10 @@ typedef struct ift_sicle_alg iftSICLE;
   NULL. 
 
   The default values are:
-    N0 = 8000, Nf = 200, Maximum number of iterations = 10
-    Adjacency relation = 6- or 4-adjacency
-    Arc-cost Function = Dynamic
-    Sampling option = Grid
-    Seed preservation curve option = Exponential
+    N0 = 3000, Nf = 200, Maximum number of iterations = 5
+    Adjacency relation = 8-adjacency
+    Arc-cost Function = Root
+    Sampling option = Random
     Seed removal criterion = Size and Minimum Contrast
     No mask and no object saliency map.
 */
@@ -142,9 +133,9 @@ void iftSICLESetNf
 (iftSICLE **sicle, const int nf);
 
 /* 
-  Sets if the diagonal adjacency relation (i.e., 26- or 8-adjacency) are to
-  be used during the segmentation. If not, then the default 6- or 4-adjacency
-  are used.
+  Sets if the diagonal adjacency relation (i.e., 26- or 8-adjacency) is to
+  be used during the segmentation. If not, then the 6- or 4-adjacency
+  is used.
 */
 void iftSICLEUseDiagAdj
 (iftSICLE **sicle, const bool use);
@@ -178,21 +169,6 @@ iftSICLEArcCost iftSICLEGetArcCostOpt
 */
 void iftSICLESetArcCostOpt
 (iftSICLE **sicle, const iftSICLEArcCost arc_opt);
-
-//===========================================================================//
-// SEED PRESERVATION CURVE
-//===========================================================================//
-/*
-  Gets the current seed preservation curve option
-*/
-iftSICLECurve iftSICLEGetCurveOpt
-(const iftSICLE *sicle);
-
-/*
-  Sets to the desired seed preservation curve option
-*/
-void iftSICLESetCurveOpt
-(iftSICLE **sicle, const iftSICLECurve curve_opt);
 
 
 //===========================================================================//

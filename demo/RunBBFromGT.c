@@ -84,9 +84,9 @@ void usage()
   const int SKIP_IND = 15; // For indentation purposes
   printf("\nThe required parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--gt", 
-         "Input groundtruth 2D image");
+         "Input groundtruth image");
   printf("%-*s %s\n", SKIP_IND, "--out", 
-         "Output groundtruth 2D bounding-box image");
+         "Output groundtruth bounding-box image");
 
   printf("\nThe optional parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--help", 

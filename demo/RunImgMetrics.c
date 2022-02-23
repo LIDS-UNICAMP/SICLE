@@ -22,7 +22,7 @@ int main(int argc, char const *argv[])
 
   args = iftCreateArgs(argc, argv);
 
-  has_req = iftExistArg(args, "labels");
+  has_req = iftExistArg(args, "labels") && iftExistArg(args, "gt");
   has_help = iftExistArg(args, "help");
 
   if(has_req == false || has_help == true)
@@ -50,16 +50,13 @@ int main(int argc, char const *argv[])
 
   if(gt_img != NULL)
   {
-    float asa, br, ue;
+    float br, ue;
 
-    asa = iftAchiSegmAccur(label_img, gt_img);
     br = iftBoundRecall(label_img, gt_img);
     ue = iftUnderSegmError(label_img, gt_img);
 
     if(as_csv == false) 
     {
-      sprintf(tmp_str, "ASA: %.3f\n", asa);
-      strcat(out_str, tmp_str);
       sprintf(tmp_str, "BR: %.3f\n", br);
       strcat(out_str, tmp_str);
       sprintf(tmp_str, "UE: %.3f\n", ue);
@@ -67,25 +64,11 @@ int main(int argc, char const *argv[])
     }
     else 
     {
-      sprintf(tmp_str, ",%f", asa);
-      strcat(out_str, tmp_str);
       sprintf(tmp_str, ",%f", br);
       strcat(out_str, tmp_str);
       sprintf(tmp_str, ",%f", ue);
       strcat(out_str, tmp_str);
     }
-  }
-
-  if(img != NULL)
-  {
-    float ev;
-
-    ev = iftExplVaria(img, label_img);
-
-    if(as_csv == false) 
-      sprintf(tmp_str, "EV: %.3f\n", ev);
-    else sprintf(tmp_str, ",%f", ev);
-    strcat(out_str, tmp_str);
   }
   
   iftDestroyArgs(&args);
@@ -102,15 +85,13 @@ void usage()
   const int SKIP_IND = 15; // For indentation purposes
   printf("\nThe required parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--labels", 
-         "Input label 2D image");
+         "Input label image");
+  printf("%-*s %s\n", SKIP_IND, "--gt", 
+         "Input ground-truth image.");
 
   printf("\nThe optional parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--csv", 
          "Flag for printing the output as comma-separated values (CSV).");
-  printf("%-*s %s\n", SKIP_IND, "--gt", 
-         "Input ground-truth 2D image.");
-  printf("%-*s %s\n", SKIP_IND, "--img", 
-         "Input original 2D image.");
   printf("%-*s %s\n", SKIP_IND, "--help", 
          "Prints this message");
 
@@ -136,30 +117,13 @@ void readImgInputs
   }
   else iftError("No label image path was given", "readImgInputs");
 
-  if(iftExistArg(args, "img") == true)
+  
+  if(iftHasArgVal(args, "gt") == true) 
   {
-    if(iftHasArgVal(args, "img") == true) 
-    {
-      PATH = iftGetArg(args, "img");
+    PATH = iftGetArg(args, "gt");
 
-      (*img) = iftReadImageByExt(PATH);
-    }
-    else iftError("No original image path was given", "readImgInputs");
-
-    iftVerifyImageDomains(*img, *label_img, "readImgInputs");
-  } else (*img) = NULL;
-
-  if(iftExistArg(args, "gt") == true)
-  {
-    if(iftHasArgVal(args, "gt") == true) 
-    {
-      PATH = iftGetArg(args, "gt");
-
-      (*gt_img) = iftReadImageByExt(PATH);
-    }
-    else iftError("No ground-truth image path was given", "readImgInputs");
-    
-    iftVerifyImageDomains(*gt_img, *label_img, "readImgInputs");
-  } else (*gt_img) = NULL;
+    (*gt_img) = iftReadImageByExt(PATH);
+  }
+  else iftError("No ground-truth image path was given", "readImgInputs");
 
 }

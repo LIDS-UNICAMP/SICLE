@@ -18,7 +18,7 @@
 */
 typedef struct _ift_iftdata
 {
-  int num_spels; // Number of spels within the image/video
+  int num_pixels; // Number of pixels within the image
   int *id_map; // Seed id map (a.k.a. root map)
   int *pred_map; // Predecessor map
   double *cost_map; // Accumulated pathcost map
@@ -30,7 +30,7 @@ typedef struct _ift_iftdata
 typedef struct _ift_foreststats
 {
   int num_trees, num_feats; // Number of trees and the number of its features
-  int *tree_size; // Size of each tree (in spels)
+  int *tree_size; // Size of each tree (in pixels)
   float *tree_sal; // Mean saliency value of each tree
   float **tree_feats; // Mean feature vector of each tree
   iftBMap **tree_adj; // Tree adjacency relation
@@ -43,15 +43,14 @@ typedef struct _ift_foreststats
 \*****************************************************************************/
 struct ift_sicle_alg
 {
-  bool use_diag_adj; // Use diagonal adjacents (i.e., 26- and 8-adjacency)?
-  int n0, nf; // Initial number of seeds and final quantity of superspels
+  bool use_diag_adj; // Use diagonal adjacents (i.e., 8-adjacency)?
+  int n0, nf; // Initial number of seeds and final quantity of superpixels
   int max_iters; // Maximum number of iterations for segmentation
   float *saliency; // Normalized object saliency values (if they are provided)
-  iftMImage *mimg; // Multiband image/video
+  iftMImage *mimg; // Multiband image
   iftBMap *mask; // Mask indicating the ROI (if it exists)
   iftSICLESampl sampl_opt; // Seed sampling option
   iftSICLEArcCost arc_opt; // Arc-cost estimation option
-  iftSICLECurve curve_opt; // Seed preservation curve option
   iftSICLERem rem_opt; // Seed removal criterion option
 };
 
@@ -86,7 +85,7 @@ inline double _iftEuclDist
 }
 
 /*
-  Creates a label image/video given an IFT id map generated during 
+  Creates a label image given an IFT id map generated during 
   segmentation.
 */
 iftImage *_iftCreateLabelImageFromIdMap
@@ -110,7 +109,7 @@ iftImage *_iftCreateLabelImageFromIdMap
   #if IFT_OMP //-------------------------------------------------------------//
   #pragma omp parallel for
   #endif //------------------------------------------------------------------//
-  for(int p = 0; p < label_img->n; ++p) // For each spel
+  for(int p = 0; p < label_img->n; ++p) // For each pixel
   {
     int seed_id;
 
@@ -127,25 +126,25 @@ iftImage *_iftCreateLabelImageFromIdMap
 //===========================================================================//
 /*
   Creates a new empty IFT data container whose mappings' sizes are defined 
-  by the number of spels given
+  by the number of pixels given
 */
 _iftIFTData *_iftCreateIFTData
-(const int num_spels)
+(const int num_pixels)
 {
   #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(num_spels > 0);
+  assert(num_pixels > 0);
   #endif //------------------------------------------------------------------//
   _iftIFTData *iftdata;
 
   iftdata = malloc(sizeof(_iftIFTData));
   assert(iftdata != NULL);
 
-  iftdata->num_spels = num_spels;
-  iftdata->id_map = calloc(num_spels, sizeof(int));
+  iftdata->num_pixels = num_pixels;
+  iftdata->id_map = calloc(num_pixels, sizeof(int));
   assert(iftdata->id_map != NULL);
-  iftdata->pred_map = calloc(num_spels, sizeof(int));
+  iftdata->pred_map = calloc(num_pixels, sizeof(int));
   assert(iftdata->pred_map != NULL);
-  iftdata->cost_map = calloc(num_spels, sizeof(double));
+  iftdata->cost_map = calloc(num_pixels, sizeof(double));
   assert(iftdata->cost_map != NULL);
 
   return iftdata;
@@ -183,12 +182,12 @@ void _iftResetIFTData
   #if IFT_OMP //-------------------------------------------------------------//
   #pragma omp parallel for
   #endif //------------------------------------------------------------------//
-  for(int p = 0; p < sicle->mimg->n; ++p) // For each spel
+  for(int p = 0; p < sicle->mimg->n; ++p) // For each pixel
   {
     (*iftdata)->id_map[p] = IFT_NIL;   // If p is not in the background, such
     (*iftdata)->pred_map[p] = IFT_NIL; // values will surely be changed
 
-    // If a mask was not provided OR it is not a forbidden spel
+    // If a mask was not provided OR it is not a forbidden pixel
     if(sicle->mask == NULL || iftBMapValue(sicle->mask, p) == true)
       (*iftdata)->cost_map[p] = IFT_INFINITY_DBL; // Exposed to conquering
     else // Then, it is forbidden
@@ -200,7 +199,8 @@ void _iftResetIFTData
 // FOREST STATISTICS
 //===========================================================================//
 /*
-  Creates an empty IFT forest statistics object based on the IFT data generated in the segmentation and its inputs.
+  Creates an empty IFT forest statistics object based on the IFT data 
+  generated in the segmentation and its inputs.
 */
 _iftForestStats *_iftCreateForestStats
 (const iftSICLE *sicle, const _iftIFTData *iftdata, const iftIntArray *seeds)
@@ -289,20 +289,10 @@ _iftForestStats *_iftCalcForestStats
   forstats = _iftCreateForestStats(sicle, iftdata, seeds);
 
   // Use the same adjacency as the one used in segmentation
-  if(sicle->use_diag_adj == true)
-  {
-    // 26- or 8-neighborhood
-    if(iftIs3DMImage(sicle->mimg) == true) A = iftSpheric(sqrtf(3.0));
-    else A = iftCircular(sqrtf(2.0));
-  }
-  else
-  {
-    // 6- or 4-neighborhood
-    if(iftIs3DMImage(sicle->mimg) == true) A = iftSpheric(1.0);
-    else A = iftCircular(1.0);
-  }
+  if(sicle->use_diag_adj == true) A = iftCircular(sqrtf(2.0));
+  else A = iftCircular(1.0);
 
-  for(int p = 0; p < sicle->mimg->n; ++p) // For each spel
+  for(int p = 0; p < sicle->mimg->n; ++p) // For each pixel
   {
     int seed_id;
 
@@ -370,32 +360,26 @@ _iftForestStats *_iftCalcForestStats
   proportional (to its length) quantity of seeds.
 */
 void _iftCalcAxisStride
-(const iftSICLE *sicle, float *xstride, float *ystride, float * zstride)
+(const iftSICLE *sicle, float *xstride, float *ystride)
 {
   #ifdef IFT_DEBUG //--------------------------------------------------------//
   assert(sicle != NULL);
   assert(xstride != NULL);
   assert(ystride != NULL);
-  assert(zstride != NULL);
   #endif //------------------------------------------------------------------//
   int total;
-  float perc_x, perc_y, perc_z, c;
+  float perc_x, perc_y, c;
 
-  total = sicle->mimg->xsize + sicle->mimg->ysize + sicle->mimg->zsize;
+  total = sicle->mimg->xsize + sicle->mimg->ysize;
   perc_x = sicle->mimg->xsize/(float)total;
   perc_y = sicle->mimg->ysize/(float)total;
-  perc_z = sicle->mimg->zsize/(float)total;
 
-  // N0 = Kx * Ky * Kz == (Px * C)(Py * C)(Pz * C) == (PxPyPz)C^3 for 3D
   // N0 = Kx * Ky == (Px * C)(Py * C) == (PxPy)C^2 for 2D
-  if(iftIs3DMImage(sicle->mimg) == true)
-    c = (float)pow(sicle->n0/(float)(perc_x * perc_y * perc_z), 1.0/3.0);
-  else c = (float)sqrtf(sicle->n0/(float)(perc_x * perc_y));
+  c = (float)sqrtf(sicle->n0/(float)(perc_x * perc_y));
 
   // Distribute seeds proportionally to the axis' size
   (*xstride) = sicle->mimg->xsize/(float)(perc_x * c);
   (*ystride) = sicle->mimg->ysize/(float)(perc_y * c);
-  (*zstride) = sicle->mimg->zsize/(float)(perc_z * c);
 }
 
 /*
@@ -408,13 +392,13 @@ iftIntArray *_iftRunGridSampl
   #if IFT_DEBUG //-----------------------------------------------------------//
   assert(sicle != NULL);
   #endif //------------------------------------------------------------------//
-  int x0, xf, y0, yf, z0, zf;
-  float xstride, ystride, zstride;
+  int x0, xf, y0, yf;
+  float xstride, ystride;
   iftSet *tmp_seeds;
   iftIntArray *seeds;
 
   // Calculate each axis' stride for equal distribution of seeds
-  _iftCalcAxisStride(sicle, &xstride, &ystride, &zstride);
+  _iftCalcAxisStride(sicle, &xstride, &ystride);
   
   if(xstride < 1.0 || ystride < 1.0) // If jump size may fall in the same spel
     iftError("Excessive number of seeds!", "_iftRunGridSampl");
@@ -422,33 +406,21 @@ iftIntArray *_iftRunGridSampl
   x0 = (int)(xstride/2.0); xf = sicle->mimg->xsize - 1;
   y0 = (int)(ystride/2.0); yf = sicle->mimg->ysize - 1;
 
-  if(iftIs3DMImage(sicle->mimg) == true) // If it is a 3D or a video
-  {
-    if(zstride < 1.0) // If jump size may fall in the same spel
-      iftError("Excessive number of seeds!", "_iftRunGridSampl");
-
-    z0 = (int)(zstride/2.0); zf = sicle->mimg->zsize - 1;
-  }
-  else { z0 = zf = 0; } // Then, ignore the z axis stride
-
   tmp_seeds = NULL; // Temporary storage for agglomerating the seed indexes
-  for(int z = z0; z <= zf; z = (int)(z + zstride)) // For each z-index
+  for(int y = y0; y <= yf; y = (int)(y + ystride)) // For each y-index
   {
-    for(int y = y0; y <= yf; y = (int)(y + ystride)) // For each y-index
+    for(int x = x0; x <= xf; x = (int)(x + xstride)) // For each x-index
     {
-      for(int x = x0; x <= xf; x = (int)(x + xstride)) // For each z-index
-      {
-        int curr_idx;
-        iftVoxel curr_vxl;
+      int curr_idx;
+      iftVoxel curr_vxl;
 
-        curr_vxl.x = x; curr_vxl.y = y; curr_vxl.z = z; // Create the seed voxel
+      curr_vxl.x = x; curr_vxl.y = y; curr_vxl.z = 0; // Create the seed pixel
 
-        curr_idx = iftMGetVoxelIndex(sicle->mimg, curr_vxl); // Get its index
+      curr_idx = iftMGetVoxelIndex(sicle->mimg, curr_vxl); // Get its index
 
-        // If a mask was not provided OR it is not a forbidden spel
-        if(sicle->mask == NULL || iftBMapValue(sicle->mask, curr_idx) == true)
-          iftInsertSet(&tmp_seeds, curr_idx); // Add it as a seed
-      }
+      // If a mask was not provided OR it is not a forbidden spel
+      if(sicle->mask == NULL || iftBMapValue(sicle->mask, curr_idx) == true)
+        iftInsertSet(&tmp_seeds, curr_idx); // Add it as a seed
     }
   }
 
@@ -577,18 +549,8 @@ void _iftRunIFT
   iftDHeap *heap;
 
   // If it is permitted to consider the diagonal neighbors
-  if(sicle->use_diag_adj == true)
-  {
-    // 26- or 8-neighborhood
-    if(iftIs3DMImage(sicle->mimg) == true) A = iftSpheric(sqrtf(3.0));
-    else A = iftCircular(sqrtf(2.0));
-  }
-  else // Then, a simpler adjacency is considered
-  {
-    // 6- or 4-neighborhood
-    if(iftIs3DMImage(sicle->mimg) == true) A = iftSpheric(1.0);
-    else A = iftCircular(1.0);
-  }
+  if(sicle->use_diag_adj == true) A = iftCircular(sqrtf(2.0));
+  else A = iftCircular(1.0);
 
   tree_size = calloc(seeds->n, sizeof(int));
   assert(tree_size != NULL);
@@ -612,7 +574,7 @@ void _iftRunIFT
     iftInsertDHeap(heap, idx);
   }
 
-  while(iftEmptyDHeap(heap) == false) // While exists a spel to be evaluated
+  while(iftEmptyDHeap(heap) == false) // While exists a pixel to be evaluated
   {
     int p_idx, seed_id;
     float *feats;
@@ -637,7 +599,7 @@ void _iftRunIFT
     
     feats = seed_feats[seed_id]; // For readability
 
-    for(int i = 1; i < A->n; ++i) // For each adjacent spel
+    for(int i = 1; i < A->n; ++i) // For each adjacent pixel
     {
       iftVoxel adj_vxl;
 
@@ -668,7 +630,7 @@ void _iftRunIFT
               iftRemoveDHeapElem(heap, adj_idx); // Remove for updating
 
             (*iftdata)->id_map[adj_idx] = seed_id;    // Mark as conquered by
-            (*iftdata)->pred_map[adj_idx] = p_idx;    // the current spel
+            (*iftdata)->pred_map[adj_idx] = p_idx;    // the current pixel
             (*iftdata)->cost_map[adj_idx] = pathcost; // evaluated
 
             // Insert to be evaluated in the future
@@ -705,6 +667,7 @@ inline int _iftCalcNumIters
   #endif //------------------------------------------------------------------//
   const float MIN_NF = 1.0; // Nf should always be > 1
   float n0, nf, max_iters;  // For readability
+  float base, exp; // Base and its exponent
   float approx;
   int num_iters;
 
@@ -713,35 +676,11 @@ inline int _iftCalcNumIters
   max_iters = (float)sicle->max_iters;
 
   approx = 0;
-  // Calculate the necessary number of iterations for segmentation
-  if(sicle->curve_opt == IFT_SICLE_CURVE_EXP) // If it is an exponential curve
-  {
-    float base, exp; // Base and its exponent
 
-    // f(i) = N0 * base^(-i)
-    exp = 1.0/(max_iters - 1);
-    base = (float)pow(n0/MIN_NF, exp);
-    approx = iftLog(n0/nf, base);
-  }
-  else if(sicle->curve_opt == IFT_SICLE_CURVE_LIN) // If it is a linear one
-  {
-    float m; // Slope
-
-    // f(i) = N0 * (mi + 1.0)
-    m = -1.0/(max_iters - 1);
-    approx = ((nf/n0) - 1.0)/m;
-  }
-  else if(sicle->curve_opt == IFT_SICLE_CURVE_PARAB) // If it is a parabolic one
-  {
-    float a; // Coefficient
-
-    // f(i) = N0 * (a(i^2) + 1.0)
-    a = -1.0/(float)pow(max_iters - 1, 2);
-    approx = sqrtf(((nf/n0) - 1.0)/a);
-  }
-  else 
-    iftError("Unknown seed preservation curve", "_iftCalcNumIters");
-
+  // f(i) = N0 * base^(-i)
+  exp = 1.0/(max_iters - 1);
+  base = (float)pow(n0/MIN_NF, exp);
+  approx = iftLog(n0/nf, base);
   num_iters = ceil(approx) + 1; // Approximate number + the final one (Ni = Nf)
 
   return num_iters;
@@ -759,7 +698,8 @@ inline int _iftCalcNumToRem
   assert(iter >= 0);
   #endif //------------------------------------------------------------------//
   const float MIN_NF = 1.0; // Nf should always be > 1
-  float n0, nf, max_iters; // For readability
+  float n0, nf, max_iters; // For readability  
+  float base, exp; // Base and its exponent
   float perc; // Percentage of N0 seeds to be selected
   int ni;
 
@@ -768,35 +708,12 @@ inline int _iftCalcNumToRem
   max_iters = (float)sicle->max_iters;
 
   perc = 0;
-  // Calculate the percentage of seeds in N0 to be selected
-  if(sicle->curve_opt == IFT_SICLE_CURVE_EXP) // If it is an exponential curve
-  {
-    float base, exp; // Base and its exponent
 
-    // f(i) = N0 * base^(-i)
-    exp = 1.0/(max_iters - 1);
-    base = (float)pow(n0/MIN_NF, exp);
-    perc = pow(base, -iter);
-  }
-  else if(sicle->curve_opt == IFT_SICLE_CURVE_LIN) // If it is a linear one
-  {
-    float m; // Slope
-
-    // f(i) = N0 * (mi + 1.0)
-    m = -1.0/(max_iters - 1);
-    perc = m * iter + 1.0;
-  }
-  else if(sicle->curve_opt == IFT_SICLE_CURVE_PARAB) // If it is a parabolic one
-  {
-    float a; // Coefficient
-
-    // f(i) = N0 * (a(i^2) + 1.0)
-    a = -1.0/(float)pow(max_iters - 1, 2);
-    perc = a * pow(iter, 2) + 1.0;
-  }
-  else 
-    iftError("Unknown seed preservation curve", "_iftCalcNumToRem");
-
+  // f(i) = N0 * base^(-i)
+  exp = 1.0/(max_iters - 1);
+  base = (float)pow(n0/MIN_NF, exp);
+  perc = pow(base, -iter);
+  
   ni = iftMax(iftRound(n0 * perc), nf); // Curve "cutting"
 
   return ni;
@@ -852,7 +769,7 @@ double *_iftCalcSeedPrio
   {
     double size_perc, min_color_grad, max_color_grad, max_sal_grad;
 
-    // Size percentage with respect to the image's size (in spels)
+    // Size percentage with respect to the image's size (in pixels)
     size_perc = forstats->tree_size[i]/(float)sicle->mimg->n;
 
     max_color_grad = max_sal_grad = 0.0;
@@ -996,14 +913,13 @@ iftSICLE *iftCreateSICLE
   else sicle->saliency = NULL; // Then, no object information is considered
 
   // Default values
-  sicle->n0 = 8000;
+  sicle->n0 = 3000;
   sicle->nf = 200;
-  sicle->max_iters = 10;
-  sicle->use_diag_adj = false;
+  sicle->max_iters = 5;
+  sicle->use_diag_adj = true;
   // Default configuration
-  sicle->sampl_opt = IFT_SICLE_SAMPL_GRID;
-  sicle->arc_opt = IFT_SICLE_ARCCOST_DYN;
-  sicle->curve_opt = IFT_SICLE_CURVE_EXP;
+  sicle->sampl_opt = IFT_SICLE_SAMPL_RND;
+  sicle->arc_opt = IFT_SICLE_ARCCOST_ROOT;
   sicle->rem_opt = IFT_SICLE_REM_MINSC;
 
   return sicle;
@@ -1079,31 +995,6 @@ inline void iftSICLESetN0
   (*sicle)->n0 = n0;
 }
 
-inline void iftSICLESetN0ByRatio
-(iftSICLE **sicle, const float ratio)
-{
-  #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(sicle != NULL);
-  assert(*sicle != NULL);
-  assert(ratio > 0.0 && ratio < 1.0);
-  #endif //------------------------------------------------------------------//
-  int total_area;
-
-  if((*sicle)->mask != NULL)
-  {
-    total_area = 0;
-    #if IFT_OMP //-----------------------------------------------------------//
-    #pragma omp parallel for reduction(+:total_area)
-    #endif //----------------------------------------------------------------//
-    for(int p = 0; p < (*sicle)->mask->n; ++p) // For each spel
-      if(iftBMapValue((*sicle)->mask, p) == true) total_area++;
-  }
-  else total_area = (*sicle)->mimg->n;
-  
-  //Ratio of the avaliable spels for sampling
-  (*sicle)->n0 = iftRound(total_area * ratio);
-}
-
 inline void iftSICLESetNf
 (iftSICLE **sicle, const int nf)
 {
@@ -1167,28 +1058,6 @@ inline void iftSICLESetArcCostOpt
   assert(*sicle != NULL);
   #endif //------------------------------------------------------------------//
   (*sicle)->arc_opt = arc_opt;
-}
-
-//===========================================================================//
-// SEED PRESERVATION CURVE
-//===========================================================================//
-inline iftSICLECurve iftSICLEGetCurveOpt
-(const iftSICLE *sicle)
-{
-  #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(sicle != NULL);
-  #endif //------------------------------------------------------------------//
-  return sicle->curve_opt;
-}
-
-inline void iftSICLESetCurveOpt
-(iftSICLE **sicle, const iftSICLECurve curve_opt)
-{
-  #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(sicle != NULL);
-  assert(*sicle != NULL);
-  #endif //------------------------------------------------------------------//
-  (*sicle)->curve_opt = curve_opt;
 }
 
 //===========================================================================//

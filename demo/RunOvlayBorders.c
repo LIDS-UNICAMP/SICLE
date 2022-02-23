@@ -17,8 +17,6 @@ void readImgInputs
 (const iftArgs *args, iftImage **img, iftImage **labels, const char **path);
 void readOptArgs
 (const iftArgs *args, float *thick, iftFColor *rgb);
-void writeOvlayImage
-(const iftImage *ovlay_img, const char *path);
 
 int main(int argc, char const *argv[])
 {
@@ -52,7 +50,7 @@ int main(int argc, char const *argv[])
   iftDestroyImage(&img);
   iftDestroyImage(&label_img);
 
-  writeOvlayImage(ovlay_img, OVLAY_PATH);
+  iftWriteImageByExt(ovlay_img, OVLAY_PATH);
   iftDestroyImage(&ovlay_img);
 
   return EXIT_SUCCESS;
@@ -63,11 +61,11 @@ void usage()
   const int SKIP_IND = 15; // For indentation purposes
   printf("\nThe required parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--img", 
-         "Input image (2D, 3D, or video folder)");
+         "Input image");
   printf("%-*s %s\n", SKIP_IND, "--labels", 
-         "Input label image (2D, 3D or video folder)");
+         "Input label image");
   printf("%-*s %s\n", SKIP_IND, "--out", 
-         "Output border overlayed image (2D or video folder)");
+         "Output border overlayed image");
 
   printf("\nThe optional parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--rgb", 
@@ -99,8 +97,7 @@ iftImage *ovlayBorders
 
   depth = iftImageDepth(orig_img);
   norm_val = iftMaxImageRange(depth);
-  ovlay_img = iftCreateColorImage(orig_img->xsize, orig_img->ysize, 
-                                  orig_img->zsize, depth);
+  ovlay_img = iftCreateColorImage(orig_img->xsize, orig_img->ysize, 1, depth);
 
   RGB.val[0] = rgb.val[0] * norm_val;
   RGB.val[1] = rgb.val[1] * norm_val;
@@ -178,8 +175,7 @@ void readImgInputs
   {
     PATH = iftGetArg(args, "img");
 
-    if(iftDirExists(PATH) == false) (*img) = iftReadImageByExt(PATH);
-    else (*img) = iftReadImageFolderAsVolume(PATH);
+    (*img) = iftReadImageByExt(PATH);
   }
   else iftError("No image path was given", "readImgInputs");
 
@@ -187,8 +183,7 @@ void readImgInputs
   {
     PATH = iftGetArg(args, "labels");
 
-    if(iftDirExists(PATH) == false) (*labels) = iftReadImageByExt(PATH);
-    else (*labels) = iftReadImageFolderAsVolume(PATH);
+    (*labels) = iftReadImageByExt(PATH);
   }
   else iftError("No label image path was given", "readImgInputs");
 
@@ -254,17 +249,4 @@ void readOptArgs
     else iftError("No normalized RGB color was given", "readOptArgs");
   }
   else (*rgb).val[0] = (*rgb).val[1] = (*rgb).val[2] = 0.0;
-}
-
-void writeOvlayImage
-(const iftImage *ovlay_img, const char *path)
-{
-  const char *EXT = iftFileExt(path);
-
-  if(iftIs3DImage(ovlay_img) == false)
-    iftWriteImageByExt(ovlay_img, path);
-  else if(iftCompareStrings(EXT, ".scn") == false)  
-    iftWriteVolumeAsSingleVideoFolder(ovlay_img, path);
-  else
-    iftError("Unsupported file format", "writeOvlayImage");
 }

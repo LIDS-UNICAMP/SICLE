@@ -20,8 +20,6 @@ void setSICLESampl
 (iftSICLE **sicle, const iftArgs *args);
 void setSICLEArcCost
 (iftSICLE **sicle, const iftArgs *args);
-void setSICLECurve
-(iftSICLE **sicle, const iftArgs *args);
 void setSICLERem
 (iftSICLE **sicle, const iftArgs *args);
 void writeLabels
@@ -59,14 +57,13 @@ int main(int argc, char const *argv[])
   setSICLEParams(&sicle, args);
   setSICLESampl(&sicle, args);
   setSICLEArcCost(&sicle, args);
-  setSICLECurve(&sicle, args);
   setSICLERem(&sicle, args);
   iftDestroyArgs(&args);
   
   labels = iftRunSICLE(sicle);
   iftDestroySICLE(&sicle);
   
-  writeLabels(labels, LABEL_PATH);
+  iftWriteImageByExt(labels, LABEL_PATH);
   iftDestroyImage(&labels);
 
   return EXIT_SUCCESS;
@@ -77,19 +74,19 @@ void usage()
   const int SKIP_IND = 15; // For indentation purposes
   printf("\nThe required parameters are:\n");
   printf("%-*s %s\n", SKIP_IND, "--img", 
-         "Input image (2D, 3D, or video folder)");
+         "Input image");
   printf("%-*s %s\n", SKIP_IND, "--out", 
-         "Output label image (2D, 3D or video folder)");
+         "Output label image");
 
   printf("\nThe optional parameters are:\n");
-  printf("%-*s %s\n", SKIP_IND, "--diag-adj", 
-         "Enable search scope to consider 8- or 26-adjacency.");
+  printf("%-*s %s\n", SKIP_IND, "--no-diag-adj", 
+         "Disable search scope to consider 8-adjacency.");
   printf("%-*s %s\n", SKIP_IND, "--mask", 
          "Mask image indicating the region of interest.");
   printf("%-*s %s\n", SKIP_IND, "--max-iters", 
-         "Maximum number of iterations for segmentation. Default: 10");
+         "Maximum number of iterations for segmentation. Default: 5");
   printf("%-*s %s\n", SKIP_IND, "--n0", 
-         "Desired initial number of seeds. Default: 8000");
+         "Desired initial number of seeds. Default: 3000");
   printf("%-*s %s\n", SKIP_IND, "--nf", 
          "Desired final number of superspels. Default: 200");
   printf("%-*s %s\n", SKIP_IND, "--objsm", 
@@ -100,13 +97,10 @@ void usage()
   printf("\nThe SICLE configuration options are:\n");
   printf("%-*s %s\n", SKIP_IND, "--arc-op", 
          "IFT arc cost function. Options: "
-         "root, dyn. Default: dyn");
-  printf("%-*s %s\n", SKIP_IND, "--curve-op", 
-         "Seed preservation curve. Options: "
-         "exp, lin, parab. Default: exp");
+         "root, dyn. Default: root");
   printf("%-*s %s\n", SKIP_IND, "--sampl-op", 
          "Seed sampling algorithm. Options: "
-         "grid, rnd. Default: grid");
+         "grid, rnd. Default: rnd");
   printf("%-*s %s\n", SKIP_IND, "--rem-op", 
          "Seed removal criterion. Options: "
          "max-contr, min-contr, size, rnd, "
@@ -132,8 +126,7 @@ void readImgInputs
   {
     PATH = iftGetArg(args, "img");
 
-    if(iftDirExists(PATH) == false) (*img) = iftReadImageByExt(PATH);
-    else (*img) = iftReadImageFolderAsVolume(PATH);
+    (*img) = iftReadImageByExt(PATH);
   }
   else iftError("No image path was given", "readImgInputs");
 
@@ -152,8 +145,7 @@ void readImgInputs
     {
       PATH = iftGetArg(args, "mask");
 
-      if(iftDirExists(PATH) == false) (*mask) = iftReadImageByExt(PATH);
-      else (*mask) = iftReadImageFolderAsVolume(PATH);
+      (*mask) = iftReadImageByExt(PATH);
 
       iftVerifyImageDomains(*img, *mask, "readImgInputs");
     }
@@ -167,8 +159,7 @@ void readImgInputs
     {
       PATH = iftGetArg(args, "objsm");
 
-      if(iftDirExists(PATH) == false) (*objsm) = iftReadImageByExt(PATH);
-      else (*objsm) = iftReadImageFolderAsVolume(PATH);
+      (*objsm) = iftReadImageByExt(PATH);
 
       iftVerifyImageDomains(*img, *objsm, "readImgInputs");
     }
@@ -187,7 +178,7 @@ void setSICLEParams
   #endif //------------------------------------------------------------------//
   int n0, nf, max_iters;
 
-  iftSICLEUseDiagAdj(sicle, iftExistArg(args, "diag-adj"));
+  iftSICLEUseDiagAdj(sicle, !iftExistArg(args, "no-diag-adj"));
 
   if(iftExistArg(args, "max-iters") == true)
   {
@@ -277,34 +268,6 @@ void setSICLEArcCost
   }
 }
 
-void setSICLECurve
-(iftSICLE **sicle, const iftArgs *args)
-{
-  #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(sicle != NULL);
-  assert(*sicle != NULL);
-  assert(args != NULL);
-  #endif //------------------------------------------------------------------//
-  if(iftExistArg(args, "curve-op") == true)
-  {
-    if(iftHasArgVal(args, "curve-op") == true)
-    {
-      const char *OPT;
-
-      OPT = iftGetArg(args, "curve-op");
-
-      if(iftCompareStrings(OPT, "exp")) 
-        iftSICLESetCurveOpt(sicle, IFT_SICLE_CURVE_EXP);
-      else if(iftCompareStrings(OPT, "lin")) 
-        iftSICLESetCurveOpt(sicle, IFT_SICLE_CURVE_LIN);
-      else if(iftCompareStrings(OPT, "parab")) 
-        iftSICLESetCurveOpt(sicle, IFT_SICLE_CURVE_PARAB);
-      else iftError("Unknown seed preservation curve", "setSICLECurve");
-    }
-    else iftError("No seed preservation curve was given", "setSICLECurve");
-  }
-}
-
 void setSICLERem
 (iftSICLE **sicle, const iftArgs *args)
 {
@@ -337,14 +300,4 @@ void setSICLERem
     }
     else iftError("No seed removal criterion was given", "setSICLERem");
   }
-}
-
-void writeLabels
-(const iftImage *labels, const char *path)
-{
-  const char *EXT = iftFileExt(path);
-
-  if(iftIs3DImage(labels) == false || iftCompareStrings(EXT, ".scn") == true)
-    iftWriteImageByExt(labels, path);
-  else  iftWriteVolumeAsSingleVideoFolder(labels, path);
 }
