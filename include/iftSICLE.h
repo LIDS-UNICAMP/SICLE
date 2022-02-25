@@ -72,6 +72,7 @@ typedef struct ift_sicle_alg iftSICLE;
   The default values are:
     N0 = 3000, Nf = 200, Maximum number of iterations = 5
     Adjacency relation = 8-adjacency
+	No scales to output
     Arc-cost Function = Root
     Sampling option = Random
     Seed removal criterion = Size and Minimum Contrast
@@ -102,9 +103,21 @@ int iftSICLEGetN0
 (const iftSICLE *sicle);
 
 /*
-  Gets the current desired final number of superspels in the segmentation
+  Gets the current desired final number of superpixels in the segmentation
 */
 int iftSICLEGetNf
+(const iftSICLE *sicle);
+
+/*
+  Gets the number of superpixel segmentation scales to be computed
+*/
+int iftSICLEGetNumScales
+(const iftSICLE *sicle);
+
+/*
+  Gets the superpixel segmentation scales to be computed
+*/
+int *iftSICLEGetScales
 (const iftSICLE *sicle);
 
 //===========================================================================//
@@ -120,21 +133,28 @@ void iftSICLESetMaxIters
 /*
   Sets the desired initial quantity of seeds to be sampled. Depending of the
   algorithm, such number may not be guaranteed. The new quantity must be greater
-  than, or equal to, the final number of superspels.
+  than, or equal to, the final number of superpixels.
 */
 void iftSICLESetN0
 (iftSICLE **sicle, const int n0);
 
 /*
-  Sets the desired final number of superspels in the segmentation. The new 
+  Sets the desired final number of superpixels in the segmentation. The new 
   quantity must be fewer than, or equal to, the initial number of seeds.
 */
 void iftSICLESetNf
 (iftSICLE **sicle, const int nf);
 
 /* 
-  Sets if the diagonal adjacency relation (i.e., 26- or 8-adjacency) is to
-  be used during the segmentation. If not, then the 6- or 4-adjacency
+  Sets if the number of superpixel segmentation scales and their superpixel
+  quantity over the default single-result exponential computation.
+*/
+void iftSICLESetScales
+(iftSICLE **sicle, const int num_scales, const int* scales);
+
+/* 
+  Sets if the diagonal adjacency relation (i.e., 8-adjacency) is to
+  be used during the segmentation. If not, then the 4-adjacency
   is used.
 */
 void iftSICLEUseDiagAdj
@@ -203,7 +223,7 @@ bool iftSICLEUsingDiagAdj
   Runs the SICLE algorithm considering the configuration and parameters defined
   in the given object.
 */
-iftImage *iftRunSICLE
+iftImage **iftRunSICLE
 (const iftSICLE *sicle);
 
 #ifdef __cplusplus

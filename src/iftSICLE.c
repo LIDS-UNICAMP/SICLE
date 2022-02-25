@@ -46,6 +46,8 @@ struct ift_sicle_alg
   bool use_diag_adj; // Use diagonal adjacents (i.e., 8-adjacency)?
   int n0, nf; // Initial number of seeds and final quantity of superpixels
   int max_iters; // Maximum number of iterations for segmentation
+  int num_scales; // Number of superpixel segmentation scales
+  int *scales; // Statically decreasing order of superpixel segmentation scales
   float *saliency; // Normalized object saliency values (if they are provided)
   iftMImage *mimg; // Multiband image
   iftBMap *mask; // Mask indicating the ROI (if it exists)
@@ -655,8 +657,8 @@ void _iftRunIFT
 //===========================================================================//
 /*
   Calculates the necessary number of iterations for reaching the desired 
-  number of superspels, with respect to the maximum number of iterations
-  given, and assuming that the final number of superspels is always greater
+  number of superpixels, with respect to the maximum number of iterations
+  given, and assuming that the final number of superpixels is always greater
   than 1.
 */
 inline int _iftCalcNumIters
@@ -678,10 +680,14 @@ inline int _iftCalcNumIters
   approx = 0;
 
   // f(i) = N0 * base^(-i)
-  exp = 1.0/(max_iters - 1);
-  base = (float)pow(n0/MIN_NF, exp);
-  approx = iftLog(n0/nf, base);
-  num_iters = ceil(approx) + 1; // Approximate number + the final one (Ni = Nf)
+  if(sicle->num_scales == 0)
+  {
+    exp = 1.0/(max_iters - 1);
+  	base = (float)pow(n0/MIN_NF, exp);
+  	approx = iftLog(n0/nf, base);
+  	num_iters = ceil(approx) + 1; // Approximate number + the final one (Ni = Nf)
+  }
+  else num_iters = sicle->num_scales + 1; // Scales + Nf
 
   return num_iters;
 }
@@ -710,11 +716,14 @@ inline int _iftCalcNumToRem
   perc = 0;
 
   // f(i) = N0 * base^(-i)
-  exp = 1.0/(max_iters - 1);
-  base = (float)pow(n0/MIN_NF, exp);
-  perc = pow(base, -iter);
-  
-  ni = iftMax(iftRound(n0 * perc), nf); // Curve "cutting"
+  if(sicle->num_scales == 0)
+  {
+    exp = 1.0/(max_iters - 1);
+    base = (float)pow(n0/MIN_NF, exp);
+    perc = pow(base, -iter);
+    ni = iftMax(iftRound(n0 * perc), nf); // Curve "cutting"
+  } 
+  else ni = sicle->scales[iter - 1];
 
   return ni;
 }
@@ -917,6 +926,8 @@ iftSICLE *iftCreateSICLE
   sicle->nf = 200;
   sicle->max_iters = 5;
   sicle->use_diag_adj = true;
+  sicle->num_scales = 0;
+  sicle->scales = NULL;
   // Default configuration
   sicle->sampl_opt = IFT_SICLE_SAMPL_RND;
   sicle->arc_opt = IFT_SICLE_ARCCOST_ROOT;
@@ -934,8 +945,9 @@ void iftDestroySICLE
   #endif //------------------------------------------------------------------//
   iftDestroyMImage(&((*sicle)->mimg));
   if((*sicle)->mask != NULL) iftDestroyBMap(&((*sicle)->mask));
-  if((*sicle)->saliency != NULL) free((*sicle)->mask);
-  
+  if((*sicle)->saliency != NULL) free((*sicle)->saliency);
+  if((*sicle)->num_scales > 0) free((*sicle)->scales); 
+
   free(*sicle);
   (*sicle) = NULL;
 }
@@ -968,6 +980,24 @@ inline int iftSICLEGetNf
   assert(sicle != NULL);
   #endif //------------------------------------------------------------------//
   return sicle->nf;
+}
+
+inline int iftSICLEGetNumScales
+(const iftSICLE *sicle)
+{
+  #if IFT_DEBUG //-----------------------------------------------------------//
+  assert(sicle != NULL);
+  #endif //------------------------------------------------------------------//
+  return sicle->num_scales;
+}
+
+inline int *iftSICLEGetScales
+(const iftSICLE *sicle)
+{
+  #if IFT_DEBUG //-----------------------------------------------------------//
+  assert(sicle != NULL);
+  #endif //------------------------------------------------------------------//
+  return sicle->scales;
 }
 
 //===========================================================================//
@@ -1004,6 +1034,23 @@ inline void iftSICLESetNf
   assert(nf >= 2 && nf <= (*sicle)->n0);
   #endif //------------------------------------------------------------------//
   (*sicle)->nf = nf;
+}
+
+void iftSICLESetScales
+(iftSICLE **sicle, const int num_scales, const int* scales)
+{
+  #if IFT_DEBUG //-----------------------------------------------------------//
+  assert(sicle != NULL);
+  assert(*sicle != NULL);
+  assert(num_scales >= 0);
+  #endif //------------------------------------------------------------------//
+  (*sicle)->num_scales = num_scales + 1;
+  if(num_scales > 0)
+  {
+	(*sicle)->scales = calloc(num_scales + 1, sizeof(int));
+	for(int i = 0; i < num_scales; ++i) (*sicle)->scales[i] = scales[i];
+	(*sicle)->scales[num_scales] = (*sicle)->nf;
+  }
 }
 
 inline void iftSICLEUseDiagAdj
@@ -1097,18 +1144,17 @@ inline bool iftSICLEUsingDiagAdj
 //===========================================================================//
 // RUNNER
 //===========================================================================//
-iftImage *iftRunSICLE
+iftImage **iftRunSICLE
 (const iftSICLE *sicle)
 {
   #if IFT_DEBUG //-----------------------------------------------------------//
   assert(sicle != NULL);
   #endif //------------------------------------------------------------------//
   int num_iters, real_n0;
-  iftIntArray *seeds, *old_seeds;
-  iftImage *label_img;
+  iftIntArray *seeds;
+  iftImage **label_img;
   _iftIFTData *iftdata;
   
-  old_seeds = NULL;
   seeds = _iftSampleSeeds(sicle); // Sample the initial seed set
   // Since the latter may not guarantee N0, we need to consider the REAL N0 
   // over the one desired by the user
@@ -1123,7 +1169,12 @@ iftImage *iftRunSICLE
   num_iters = _iftCalcNumIters(sicle, real_n0); 
   if(num_iters <= 1) // At least two iterations MUST be performed
     iftError("The number of seeds is too low", "iftRunSICLE");
+	
+  label_img = calloc(num_iters, sizeof(iftImage*));
 
+  if(label_img == NULL)
+    iftError("Could not alloc array of Images","iftRunSICLE");
+  
   for(int iter = 1; iter <= num_iters; ++iter) // For each iteration
   {
     int ni;
@@ -1132,26 +1183,29 @@ iftImage *iftRunSICLE
     fprintf(stderr, "iftRunSICLE: Iteration %d of %d\n", iter, num_iters);
     #endif //----------------------------------------------------------------//
     // Segment image using the IFT
-    _iftRunIFT(sicle, seeds, old_seeds, &iftdata);
+    _iftRunIFT(sicle, seeds, seeds, &iftdata);
+
+    // Creates a label image based on the seed id's in the IFT's id map
+	if(sicle->num_scales > 0 && iter < num_iters)
+      label_img[num_iters - iter] = _iftCreateLabelImageFromIdMap(sicle, seeds, iftdata);
 
     if(iter < num_iters) // If it is not the last iteration
     {
+	  iftIntArray *old_seeds;
+
       // Calculate the number of seeds to be selected (for the next iteration)
       ni = _iftCalcNumToRem(sicle, real_n0, iter);  
       #if IFT_DEBUG //-------------------------------------------------------//
       fprintf(stderr, "iftRunSICLE: Ni = %d\n", ni);
       #endif //--------------------------------------------------------------//
-      // Select the Ni relevant seeds (and remove the others)
-      if(old_seeds != NULL) iftDestroyIntArray(&old_seeds);
       old_seeds = seeds;
-
+      // Select the Ni relevant seeds (and remove the others)
       seeds = _iftRemSeeds(sicle, ni, iftdata, old_seeds);
+  	  iftDestroyIntArray(&old_seeds);
     }
   }
+  label_img[0] = _iftCreateLabelImageFromIdMap(sicle, seeds, iftdata);
 
-  // Creates a label image based on the seed id's in the IFT's id map
-  label_img = _iftCreateLabelImageFromIdMap(sicle, seeds, iftdata);
-  
   _iftDestroyIFTData(&iftdata);
   iftDestroyIntArray(&seeds);
 

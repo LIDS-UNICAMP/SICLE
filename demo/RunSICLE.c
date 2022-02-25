@@ -23,7 +23,46 @@ void setSICLEArcCost
 void setSICLERem
 (iftSICLE **sicle, const iftArgs *args);
 void writeLabels
-(const iftImage *labels, const char *path);
+(const iftImage **labels, const char *path);
+
+// from: https://stackoverflow.com/questions/2736753/how-to-remove-extension-from-file-name
+char *remove_ext (const char* myStr, char extSep, char pathSep) {
+    char *retStr, *lastExt, *lastPath;
+
+    // Error checks and allocate string.
+
+    if (myStr == NULL) return NULL;
+    if ((retStr = malloc (strlen (myStr) + 1)) == NULL) return NULL;
+
+    // Make a copy and find the relevant characters.
+
+    strcpy (retStr, myStr);
+    lastExt = strrchr (retStr, extSep);
+    lastPath = (pathSep == 0) ? NULL : strrchr (retStr, pathSep);
+
+    // If it has an extension separator.
+
+    if (lastExt != NULL) {
+        // and it's to the right of the path separator.
+
+        if (lastPath != NULL) {
+            if (lastPath < lastExt) {
+                // then remove it.
+
+                *lastExt = '\0';
+            }
+        } else {
+            // Has extension separator with no path separator.
+
+            *lastExt = '\0';
+        }
+    }
+
+    // Return the modified string.
+
+    return retStr;
+}
+
 
 int main(int argc, char const *argv[])
 {
@@ -43,8 +82,11 @@ int main(int argc, char const *argv[])
     return EXIT_FAILURE;
   }
   //-------------------------------------------------------------------------//
-  const char *LABEL_PATH;
-  iftImage *img, *mask, *objsm, *labels;
+  const char *LABEL_PATH, *EXT;
+  char *basename;
+  int scale;
+  iftImage *img, *mask, *objsm;
+  iftImage **labels;
   iftSICLE *sicle;
 
   readImgInputs(args, &img, &mask, &objsm, &LABEL_PATH);
@@ -61,10 +103,19 @@ int main(int argc, char const *argv[])
   iftDestroyArgs(&args);
   
   labels = iftRunSICLE(sicle);
-  iftDestroySICLE(&sicle);
   
-  iftWriteImageByExt(labels, LABEL_PATH);
-  iftDestroyImage(&labels);
+  EXT = iftFileExt(LABEL_PATH);
+  basename = remove_ext(LABEL_PATH,'.','/');
+  for(scale = 0; scale <= iftSICLEGetNumScales(sicle); ++scale)
+  {
+
+    iftWriteImageByExt(labels[scale], "%s_%d.%s", basename, scale,EXT);
+    iftDestroyImage(&(labels[scale]));
+  }
+  free(basename);
+  free(labels);
+
+  iftDestroySICLE(&sicle);
 
   return EXIT_SUCCESS;
 }
@@ -88,7 +139,9 @@ void usage()
   printf("%-*s %s\n", SKIP_IND, "--n0", 
          "Desired initial number of seeds. Default: 3000");
   printf("%-*s %s\n", SKIP_IND, "--nf", 
-         "Desired final number of superspels. Default: 200");
+         "Desired final number of superpixels. Default: 200");
+  printf("%-*s %s\n", SKIP_IND, "--scales", 
+         "Comma-separated list of superpixel scales. Default: None");
   printf("%-*s %s\n", SKIP_IND, "--objsm", 
          "Grayscale object saliency map.");
   printf("%-*s %s\n", SKIP_IND, "--help", 
@@ -209,9 +262,63 @@ void setSICLEParams
     if(iftHasArgVal(args, "nf") == true) 
     {
       nf = atoi(iftGetArg(args, "nf"));
-      iftSICLESetNf(sicle, nf);
+	  
+	  if(nf < iftSICLEGetN0(*sicle)) iftSICLESetNf(sicle, nf);
+      else iftError("The number of superpixels must be greater than N0", 
+                    "setSICLEParams");
     }
-    else iftError("No desired quantity of superspels was given", 
+    else iftError("No desired quantity of superpixels was given", 
+                  "setSICLEParams");
+  }
+
+  if(iftExistArg(args, "scales") == true)
+  {
+    if(iftHasArgVal(args, "scales") == true) 
+    {
+      const char *VAL;
+      int i, prev;
+      char *tmp, *tok;
+	  int num_scales;
+	  int *scales;
+	  iftSet *list_scales;
+
+	  list_scales = NULL;
+
+      VAL = iftGetArg(args, "scales");
+      tmp = iftCopyString(VAL);
+      tok = strtok(tmp, ",");
+
+      i = 0;
+	  prev = iftSICLEGetN0(*sicle);
+      while(tok != NULL)
+      {
+        int curr;
+
+        curr = atoi(tok);
+        if(curr < prev && curr > iftSICLEGetNf(*sicle))
+        {
+		  iftInsertSet(&list_scales,curr);
+		  prev = curr;
+        }
+        else iftError("The order of scales must be statically decreasing and within ]N0,Nf[",
+        		   	  "setSICLEParams");
+
+        tok = strtok(NULL, ",");
+        i++;
+      }
+      free(tmp);
+
+      if(i == 0) iftError("No list of scales was given", "setSICLEParams");
+
+	  num_scales = i;
+	  scales = calloc(num_scales, sizeof(int));
+	  while(i > 0)
+		scales[--i] = iftRemoveSet(&list_scales);
+	  
+      iftSICLESetScales(sicle, num_scales, scales);
+	  free(scales);
+    }
+    else iftError("No list of superpixel scales was given", 
                   "setSICLEParams");
   }
 }

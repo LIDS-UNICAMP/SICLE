@@ -99,8 +99,8 @@ void readImgInputs
 (const iftArgs *args, iftImage **gt_img, const char **path)
 {
   #if IFT_DEBUG //-----------------------------------------------------------//
-  assert(args != null);
-  assert(gt_img != null);
+  assert(args != NULL);
+  assert(gt_img != NULL);
   #endif //------------------------------------------------------------------//
   const char *PATH;
 
