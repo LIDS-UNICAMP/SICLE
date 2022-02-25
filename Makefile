@@ -35,9 +35,9 @@ IFT_DEBUG = NO
 # OpenMP: Requires version 4.5
 # LibPNG: Requires version 1.6.29
 # LibJPEG: Requires version 9.0
-IFT_OMP = YES
-IFT_LIBPNG = YES
-IFT_LIBJPEG = YES
+IFT_OMP = NO
+IFT_LIBPNG = NO
+IFT_LIBJPEG = NO
 
 # It is expecting a GNU GCC compiler. For other compilers, modifications 
 # might be necessary
