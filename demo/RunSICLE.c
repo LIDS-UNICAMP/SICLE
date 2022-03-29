@@ -106,13 +106,16 @@ int main(int argc, char const *argv[])
   
   EXT = iftFileExt(LABEL_PATH);
   basename = remove_ext(LABEL_PATH,'.','/');
-  for(scale = 0; scale <= iftSICLEGetNumScales(sicle); ++scale)
+  for(scale = 1; scale <= iftSICLEGetNumScales(sicle); ++scale)
   {
 
-    iftWriteImageByExt(labels[scale], "%s_%d.%s", basename, scale,EXT);
+    iftWriteImageByExt(labels[scale], "%s_%d%s", basename, scale,EXT);
     iftDestroyImage(&(labels[scale]));
   }
   free(basename);
+
+  iftWriteImageByExt(labels[0], LABEL_PATH);
+  iftDestroyImage(&(labels[0]));
   free(labels);
 
   iftDestroySICLE(&sicle);
