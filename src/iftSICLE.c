@@ -44,6 +44,7 @@ typedef struct _ift_foreststats
 struct ift_sicle_alg
 {
   bool use_diag_adj; // Use diagonal adjacents (i.e., 8-adjacency)?
+  bool enable_boost; // Boost delineation?
   int n0, nf; // Initial number of seeds and final quantity of superpixels
   int max_iters; // Maximum number of iterations for segmentation
   int num_scales; // Number of superpixel segmentation scales
@@ -87,7 +88,7 @@ inline double _iftEuclDist
 }
 
 /*
-  Creates a label image given an IFT id map generated during 
+  Creates a label image given an IFT id map generated during
   segmentation.
 */
 iftImage *_iftCreateLabelImageFromIdMap
@@ -101,9 +102,9 @@ iftImage *_iftCreateLabelImageFromIdMap
   int label;
   iftImage *label_img;
 
-  label_img = iftCreateImage(sicle->mimg->xsize, sicle->mimg->ysize, 
+  label_img = iftCreateImage(sicle->mimg->xsize, sicle->mimg->ysize,
                              sicle->mimg->zsize);
-    
+
   label = 1; // 0 is for the background
   for(long i = 0; i < seeds->n; ++i)
     label_img->val[seeds->val[i]] = label++; // Assign unique label
@@ -127,7 +128,7 @@ iftImage *_iftCreateLabelImageFromIdMap
 // IFT DATA
 //===========================================================================//
 /*
-  Creates a new empty IFT data container whose mappings' sizes are defined 
+  Creates a new empty IFT data container whose mappings' sizes are defined
   by the number of pixels given
 */
 _iftIFTData *_iftCreateIFTData
@@ -201,7 +202,7 @@ void _iftResetIFTData
 // FOREST STATISTICS
 //===========================================================================//
 /*
-  Creates an empty IFT forest statistics object based on the IFT data 
+  Creates an empty IFT forest statistics object based on the IFT data
   generated in the segmentation and its inputs.
 */
 _iftForestStats *_iftCreateForestStats
@@ -219,7 +220,7 @@ _iftForestStats *_iftCreateForestStats
 
   forstats->num_trees = (int)seeds->n;
   forstats->num_feats = sicle->mimg->m;
-  
+
   forstats->tree_size = calloc(forstats->num_trees, sizeof(int));
   assert(forstats->tree_size != NULL);
 
@@ -243,7 +244,7 @@ _iftForestStats *_iftCreateForestStats
     forstats->tree_adj[i] = iftCreateBMap(forstats->num_trees);
     assert(forstats->tree_adj[i] != NULL);
   }
-  
+
   return forstats;
 }
 
@@ -337,14 +338,14 @@ _iftForestStats *_iftCalcForestStats
       }
     }
   }
-  
+
   for(long i = 0; i < seeds->n; ++i) // For each seed/tree
   {
     if(sicle->saliency != NULL) // If a saliency map was provided
       // Compute mean saliency
       forstats->tree_sal[i] /= (float)forstats->tree_size[i];
     else forstats->tree_sal[i] = 1.0; // Then, all trees are relevant
-    
+
     for(int j = 0; j < sicle->mimg->m; ++j) // For each feature
       // Compute mean feature
       forstats->tree_feats[i][j] /= (float)forstats->tree_size[i];
@@ -358,7 +359,7 @@ _iftForestStats *_iftCalcForestStats
 // SEED SAMPLING
 //===========================================================================//
 /*
-  Calculates the stride within each axis in order to sample the respective 
+  Calculates the stride within each axis in order to sample the respective
   proportional (to its length) quantity of seeds.
 */
 void _iftCalcAxisStride
@@ -385,7 +386,7 @@ void _iftCalcAxisStride
 }
 
 /*
-  Samples the desired initial number of seeds by a grid scheme selection. If a 
+  Samples the desired initial number of seeds by a grid scheme selection. If a
   candidate is within a forbidden location, it is not resampled.
 */
 iftIntArray *_iftRunGridSampl
@@ -401,7 +402,7 @@ iftIntArray *_iftRunGridSampl
 
   // Calculate each axis' stride for equal distribution of seeds
   _iftCalcAxisStride(sicle, &xstride, &ystride);
-  
+
   if(xstride < 1.0 || ystride < 1.0) // If jump size may fall in the same spel
     iftError("Excessive number of seeds!", "_iftRunGridSampl");
 
@@ -433,7 +434,7 @@ iftIntArray *_iftRunGridSampl
 }
 
 /*
-  Samples the desired initial number of seeds by random selection. If a 
+  Samples the desired initial number of seeds by random selection. If a
   candidate is within a forbidden location, it is resampled.
 */
 iftIntArray *_iftRunRndSampl
@@ -488,7 +489,7 @@ iftIntArray* _iftSampleSeeds
   seeds = NULL;
   // Sample the initial seed set
   if(sicle->sampl_opt == IFT_SICLE_SAMPL_GRID)
-    seeds = _iftRunGridSampl(sicle); 
+    seeds = _iftRunGridSampl(sicle);
   else if(sicle->sampl_opt == IFT_SICLE_SAMPL_RND)
     seeds = _iftRunRndSampl(sicle);
   else
@@ -501,7 +502,7 @@ iftIntArray* _iftSampleSeeds
 // IMAGE FORESTING TRANSFORM
 //===========================================================================//
 /*
-  Gets and/or initializes the seeds' feature vector with respect to the 
+  Gets and/or initializes the seeds' feature vector with respect to the
   arc-cost estimation defined by the user.
 */
 float **_iftGetSeedsFeats
@@ -532,7 +533,7 @@ float **_iftGetSeedsFeats
 }
 
 /*
-  Runs the seed-restricted IFT considering the options defined in the 
+  Runs the seed-restricted IFT considering the options defined in the
   parameter. Note that the IFT data is updated inplace.
 */
 void _iftRunIFT
@@ -545,10 +546,14 @@ void _iftRunIFT
   assert(iftdata != NULL);
   assert(*iftdata != NULL);
   #endif //------------------------------------------------------------------//
+  int alpha;
   int *tree_size;
   float **seed_feats;
   iftAdjRel *A;
   iftDHeap *heap;
+	
+  // If the user desires to boost delineation for passive environments 
+  alpha = (sicle->enable_boost) ? 1 : 0;
 
   // If it is permitted to consider the diagonal neighbors
   if(sicle->use_diag_adj == true) A = iftCircular(sqrtf(2.0));
@@ -559,7 +564,7 @@ void _iftRunIFT
 
   // Get the seed features based on the user's selection of arc estimation
   seed_feats = _iftGetSeedsFeats(sicle, seeds, old_seeds, *iftdata);
-  
+
   _iftResetIFTData(sicle, iftdata); // Clear the IFT data for a new iteration
 
   heap = iftCreateDHeap(sicle->mimg->n, (*iftdata)->cost_map);
@@ -569,7 +574,7 @@ void _iftRunIFT
   for(long i = 0; i < seeds->n; ++i) // For each seed
   {
     int idx;
-    
+
     idx = seeds->val[i];
     (*iftdata)->cost_map[idx] = 0; // Assuring that seeds are 1st in line
     (*iftdata)->id_map[idx] = i; // A seed maps to its own id
@@ -579,15 +584,19 @@ void _iftRunIFT
   while(iftEmptyDHeap(heap) == false) // While exists a pixel to be evaluated
   {
     int p_idx, seed_id;
+    float seed_saliency;
     float *feats;
     iftVoxel p_vxl;
 
     p_idx = iftRemoveDHeap(heap);
     p_vxl = iftMGetVoxelCoord(sicle->mimg, p_idx);
-    
-    seed_id = (*iftdata)->id_map[p_idx];
 
-    // Update the seed features 
+    // Get seed id and saliency (when provided)
+    seed_id = (*iftdata)->id_map[p_idx];
+	if(sicle->saliency == NULL) seed_saliency = 0;
+	else seed_saliency = sicle->saliency[seeds->val[seed_id]];
+
+    // Update the seed features
     if(sicle->arc_opt == IFT_SICLE_ARCCOST_DYN) // If it is an dynamic arc cost
     {
       for(int j = 0; j < sicle->mimg->m; ++j) // For each feature
@@ -598,7 +607,7 @@ void _iftRunIFT
       }
     } // Then, nothing to do for root-based arc costs
     tree_size[seed_id]++; // Increase tree's size
-    
+
     feats = seed_feats[seed_id]; // For readability
 
     for(int i = 1; i < A->n; ++i) // For each adjacent pixel
@@ -617,14 +626,19 @@ void _iftRunIFT
         if(heap->color[adj_idx] != IFT_BLACK) // If it wasn't ordely removed
         {
           double arccost, pathcost;
+		  float adj_saliency,tmp;
           float *adj_feats;
-
+		  
+		  // Get adjacent features and saliency (when provided)
           adj_feats = sicle->mimg->val[adj_idx];
-          
+		  if(sicle->saliency == NULL) adj_saliency = 0;
+		  else adj_saliency = sicle->saliency[adj_idx];
+		  
           arccost = _iftEuclDist(feats, adj_feats, sicle->mimg->m); // L2-Norm
+		  tmp = fabs(seed_saliency - adj_saliency);
+          arccost = pow(arccost,1 + alpha * tmp);
 
           pathcost = iftMax((*iftdata)->cost_map[p_idx], arccost); // Fmax
-
           // Does the new path offer a lesser accumulated cost?
           if(pathcost < (*iftdata)->cost_map[adj_idx])
           {
@@ -636,7 +650,7 @@ void _iftRunIFT
             (*iftdata)->cost_map[adj_idx] = pathcost; // evaluated
 
             // Insert to be evaluated in the future
-            iftInsertDHeap(heap, adj_idx); 
+            iftInsertDHeap(heap, adj_idx);
           }
         }
       }
@@ -656,7 +670,7 @@ void _iftRunIFT
 // SEED PRESERVATION CURVE
 //===========================================================================//
 /*
-  Calculates the necessary number of iterations for reaching the desired 
+  Calculates the necessary number of iterations for reaching the desired
   number of superpixels, with respect to the maximum number of iterations
   given, and assuming that the final number of superpixels is always greater
   than 1.
@@ -693,7 +707,7 @@ inline int _iftCalcNumIters
 }
 
 /*
-  Calculates the quantity of irrelevant seeds to be removed in the given 
+  Calculates the quantity of irrelevant seeds to be removed in the given
   iteration, considering the configuration given in parameter.
 */
 inline int _iftCalcNumToRem
@@ -704,7 +718,7 @@ inline int _iftCalcNumToRem
   assert(iter >= 0);
   #endif //------------------------------------------------------------------//
   const float MIN_NF = 1.0; // Nf should always be > 1
-  float n0, nf, max_iters; // For readability  
+  float n0, nf, max_iters; // For readability
   float base, exp; // Base and its exponent
   float perc; // Percentage of N0 seeds to be selected
   int ni;
@@ -722,7 +736,7 @@ inline int _iftCalcNumToRem
     base = (float)pow(n0/MIN_NF, exp);
     perc = pow(base, -iter);
     ni = iftMax(iftRound(n0 * perc), nf); // Curve "cutting"
-  } 
+  }
   else ni = sicle->scales[iter - 1];
 
   return ni;
@@ -764,12 +778,15 @@ double *_iftCalcSeedPrio
   assert(seeds != NULL);
   assert(iftdata != NULL);
   #endif //------------------------------------------------------------------//
+  int alpha;
   double *prio;
   _iftForestStats *forstats;
 
   prio = calloc(seeds->n, sizeof(double));
   // Calculate the statistics of the generated forest
   forstats = _iftCalcForestStats(sicle, iftdata, seeds);
+
+  alpha = (sicle->enable_boost) ? 1 : 0;
 
   #if IFT_OMP //-------------------------------------------------------------//
   #pragma omp parallel for
@@ -800,20 +817,20 @@ double *_iftCalcSeedPrio
         if(grad > max_color_grad) max_color_grad = grad;
         if(sal_grad > max_sal_grad) max_sal_grad = sal_grad;
       } // Then, do not consider in the computation
-    } 
+    }
 
     if(sicle->rem_opt == IFT_SICLE_REM_MINCONTR)
       prio[i] = min_color_grad;
     else if(sicle->rem_opt == IFT_SICLE_REM_MAXCONTR)
-      prio[i] = max_color_grad; 
-    else if(sicle->rem_opt == IFT_SICLE_REM_SIZE) 
-      prio[i] = size_perc; 
+      prio[i] = max_color_grad;
+    else if(sicle->rem_opt == IFT_SICLE_REM_SIZE)
+      prio[i] = size_perc;
     else if(sicle->rem_opt == IFT_SICLE_REM_MAXSC)
       prio[i] = size_perc * max_color_grad;
     else if(sicle->rem_opt == IFT_SICLE_REM_MINSC)
       prio[i] = size_perc * min_color_grad;
 
-    prio[i] *= iftMax(forstats->tree_sal[i], max_sal_grad);
+    prio[i] *= iftMax((1-alpha) * forstats->tree_sal[i], max_sal_grad);
   }
   _iftDestroyForestStats(&forstats);
 
@@ -821,11 +838,11 @@ double *_iftCalcSeedPrio
 }
 
 /*
-  Selects the desired quantity of seeds with highest relevance --- with 
+  Selects the desired quantity of seeds with highest relevance --- with
   respect to the given criterion --- and returns them.
 */
 iftIntArray *_iftRemSeeds
-(const iftSICLE *sicle, const int ni, const _iftIFTData *iftdata, 
+(const iftSICLE *sicle, const int ni, const _iftIFTData *iftdata,
  const iftIntArray *seeds)
 {
   #if IFT_DEBUG //-----------------------------------------------------------//
@@ -839,15 +856,15 @@ iftIntArray *_iftRemSeeds
 
   prio = NULL;
   // Compute the seed priorities
-  if(sicle->rem_opt == IFT_SICLE_REM_RND) 
+  if(sicle->rem_opt == IFT_SICLE_REM_RND)
     prio = _iftCalcRndSeedPrio(seeds);
   else if(sicle->rem_opt == IFT_SICLE_REM_MINCONTR ||
           sicle->rem_opt == IFT_SICLE_REM_MAXCONTR ||
-          sicle->rem_opt == IFT_SICLE_REM_SIZE || 
+          sicle->rem_opt == IFT_SICLE_REM_SIZE ||
           sicle->rem_opt == IFT_SICLE_REM_MAXSC ||
           sicle->rem_opt == IFT_SICLE_REM_MINSC )
     prio = _iftCalcSeedPrio(sicle, iftdata, seeds);
-  else 
+  else
     iftError("Unknown seed removal criterion", "_iftRemSeeds");
 
   heap = iftCreateDHeap(seeds->n, prio);
@@ -896,7 +913,7 @@ iftSICLE *iftCreateSICLE
     sicle->mimg = iftImageToMImage(img, LAB_CSPACE); // Set to CIELAB
   else // Then, deal with the luminosity values
     sicle->mimg = iftImageToMImage(img, GRAY_CSPACE);
-  
+
   if(mask != NULL) // If a mask was provided
     sicle->mask = iftBinImageToBMap(mask); // Saves a lot of memory
   else sicle->mask = NULL; // Then, all spels are to be conquered
@@ -904,7 +921,7 @@ iftSICLE *iftCreateSICLE
   if(objsm != NULL) // If a saliency map was provided
   {
     int max_sal, min_sal;
-    
+
     iftMinMaxValues(objsm, &min_sal, &max_sal); // For normalizing the values
 
     sicle->saliency = calloc(objsm->n, sizeof(float));
@@ -918,7 +935,7 @@ iftSICLE *iftCreateSICLE
       sicle->saliency[p] = (objsm->val[p] - min_sal);   // Normalize saliency
       sicle->saliency[p] /= (float)(max_sal - min_sal); // to [0,1]
     }
-  } 
+  }
   else sicle->saliency = NULL; // Then, no object information is considered
 
   // Default values
@@ -928,6 +945,7 @@ iftSICLE *iftCreateSICLE
   sicle->use_diag_adj = true;
   sicle->num_scales = 0;
   sicle->scales = NULL;
+  sicle->enable_boost = false;
   // Default configuration
   sicle->sampl_opt = IFT_SICLE_SAMPL_RND;
   sicle->arc_opt = IFT_SICLE_ARCCOST_ROOT;
@@ -946,7 +964,7 @@ void iftDestroySICLE
   iftDestroyMImage(&((*sicle)->mimg));
   if((*sicle)->mask != NULL) iftDestroyBMap(&((*sicle)->mask));
   if((*sicle)->saliency != NULL) free((*sicle)->saliency);
-  if((*sicle)->num_scales > 0) free((*sicle)->scales); 
+  if((*sicle)->num_scales > 0) free((*sicle)->scales);
 
   free(*sicle);
   (*sicle) = NULL;
@@ -1063,6 +1081,16 @@ inline void iftSICLEUseDiagAdj
   (*sicle)->use_diag_adj = use;
 }
 
+inline void iftSICLEEnableBoost
+(iftSICLE **sicle, const bool enable)
+{
+  #if IFT_DEBUG //-----------------------------------------------------------//
+  assert(sicle != NULL);
+  assert(*sicle != NULL);
+  #endif //------------------------------------------------------------------//
+  (*sicle)->enable_boost = enable;
+}
+
 //===========================================================================//
 // SEED SAMPLING
 //===========================================================================//
@@ -1138,9 +1166,17 @@ inline bool iftSICLEUsingDiagAdj
   #if IFT_DEBUG //-----------------------------------------------------------//
   assert(sicle != NULL);
   #endif //------------------------------------------------------------------//
-  return sicle->use_diag_adj; 
+  return sicle->use_diag_adj;
 }
 
+inline bool iftSICLEBoostEnabled
+(const iftSICLE *sicle)
+{
+  #if IFT_DEBUG //-----------------------------------------------------------//
+  assert(sicle != NULL);
+  #endif //------------------------------------------------------------------//
+  return sicle->enable_boost;
+}
 //===========================================================================//
 // RUNNER
 //===========================================================================//
@@ -1154,27 +1190,27 @@ iftImage **iftRunSICLE
   iftIntArray *seeds;
   iftImage **label_img;
   _iftIFTData *iftdata;
-  
+
   seeds = _iftSampleSeeds(sicle); // Sample the initial seed set
-  // Since the latter may not guarantee N0, we need to consider the REAL N0 
+  // Since the latter may not guarantee N0, we need to consider the REAL N0
   // over the one desired by the user
-  real_n0 = (int)seeds->n; 
+  real_n0 = (int)seeds->n;
   #if IFT_DEBUG //---------------------------------------------------------//
   fprintf(stderr, "iftRunSICLE: Number of seeds = %ld\n", seeds->n);
   #endif //----------------------------------------------------------------//
 
   iftdata = _iftCreateIFTData(sicle->mimg->n); // Create an empty IFT data
-  
+
   // Get the necessary number of iterations for segmentation
-  num_iters = _iftCalcNumIters(sicle, real_n0); 
+  num_iters = _iftCalcNumIters(sicle, real_n0);
   if(num_iters <= 1) // At least two iterations MUST be performed
     iftError("The number of seeds is too low", "iftRunSICLE");
-	
+
   label_img = calloc(num_iters, sizeof(iftImage*));
 
   if(label_img == NULL)
     iftError("Could not alloc array of Images","iftRunSICLE");
-  
+
   for(int iter = 1; iter <= num_iters; ++iter) // For each iteration
   {
     int ni;
@@ -1194,7 +1230,7 @@ iftImage **iftRunSICLE
 	  iftIntArray *old_seeds;
 
       // Calculate the number of seeds to be selected (for the next iteration)
-      ni = _iftCalcNumToRem(sicle, real_n0, iter);  
+      ni = _iftCalcNumToRem(sicle, real_n0, iter);
       #if IFT_DEBUG //-------------------------------------------------------//
       fprintf(stderr, "iftRunSICLE: Ni = %d\n", ni);
       #endif //--------------------------------------------------------------//

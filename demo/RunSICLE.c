@@ -12,7 +12,7 @@
 
 void usage();
 void readImgInputs
-(const iftArgs *args, iftImage **img, iftImage **mask, iftImage **objsm, 
+(const iftArgs *args, iftImage **img, iftImage **mask, iftImage **objsm,
  const char **path);
 void setSICLEParams
 (iftSICLE **sicle, const iftArgs *args);
@@ -77,7 +77,7 @@ int main(int argc, char const *argv[])
 
   if(has_req == false || has_help == true)
   {
-    usage(); 
+    usage();
     iftDestroyArgs(&args);
     return EXIT_FAILURE;
   }
@@ -101,7 +101,7 @@ int main(int argc, char const *argv[])
   setSICLEArcCost(&sicle, args);
   setSICLERem(&sicle, args);
   iftDestroyArgs(&args);
-  
+
   labels = iftRunSICLE(sicle);
   
   EXT = iftFileExt(LABEL_PATH);
@@ -127,37 +127,39 @@ void usage()
 {
   const int SKIP_IND = 15; // For indentation purposes
   printf("\nThe required parameters are:\n");
-  printf("%-*s %s\n", SKIP_IND, "--img", 
+  printf("%-*s %s\n", SKIP_IND, "--img",
          "Input image");
-  printf("%-*s %s\n", SKIP_IND, "--out", 
+  printf("%-*s %s\n", SKIP_IND, "--out",
          "Output label image");
 
   printf("\nThe optional parameters are:\n");
-  printf("%-*s %s\n", SKIP_IND, "--no-diag-adj", 
+  printf("%-*s %s\n", SKIP_IND, "--no-diag-adj",
          "Disable search scope to consider 8-adjacency.");
-  printf("%-*s %s\n", SKIP_IND, "--mask", 
+  printf("%-*s %s\n", SKIP_IND, "--mask",
          "Mask image indicating the region of interest.");
-  printf("%-*s %s\n", SKIP_IND, "--max-iters", 
+  printf("%-*s %s\n", SKIP_IND, "--max-iters",
          "Maximum number of iterations for segmentation. Default: 5");
-  printf("%-*s %s\n", SKIP_IND, "--n0", 
+  printf("%-*s %s\n", SKIP_IND, "--n0",
          "Desired initial number of seeds. Default: 3000");
-  printf("%-*s %s\n", SKIP_IND, "--nf", 
+  printf("%-*s %s\n", SKIP_IND, "--nf",
          "Desired final number of superpixels. Default: 200");
-  printf("%-*s %s\n", SKIP_IND, "--scales", 
+  printf("%-*s %s\n", SKIP_IND, "--scales",
          "Comma-separated list of superpixel scales. Default: None");
-  printf("%-*s %s\n", SKIP_IND, "--objsm", 
+ printf("%-*s %s\n", SKIP_IND, "--boost",
+        "Enables boosting performance for good saliency maps.");
+  printf("%-*s %s\n", SKIP_IND, "--objsm",
          "Grayscale object saliency map.");
-  printf("%-*s %s\n", SKIP_IND, "--help", 
+  printf("%-*s %s\n", SKIP_IND, "--help",
          "Prints this message");
 
   printf("\nThe SICLE configuration options are:\n");
-  printf("%-*s %s\n", SKIP_IND, "--arc-op", 
+  printf("%-*s %s\n", SKIP_IND, "--arc-op",
          "IFT arc cost function. Options: "
          "root, dyn. Default: root");
-  printf("%-*s %s\n", SKIP_IND, "--sampl-op", 
+  printf("%-*s %s\n", SKIP_IND, "--sampl-op",
          "Seed sampling algorithm. Options: "
          "grid, rnd. Default: rnd");
-  printf("%-*s %s\n", SKIP_IND, "--rem-op", 
+  printf("%-*s %s\n", SKIP_IND, "--rem-op",
          "Seed removal criterion. Options: "
          "max-contr, min-contr, size, rnd, "
          "max-sc, min-sc. Default: min-sc");
@@ -166,7 +168,7 @@ void usage()
 }
 
 void readImgInputs
-(const iftArgs *args, iftImage **img, iftImage **mask, iftImage **objsm, 
+(const iftArgs *args, iftImage **img, iftImage **mask, iftImage **objsm,
  const char **path)
 {
   #if IFT_DEBUG //-----------------------------------------------------------//
@@ -178,7 +180,7 @@ void readImgInputs
   #endif //------------------------------------------------------------------//
   const char *PATH;
 
-  if(iftHasArgVal(args, "img") == true) 
+  if(iftHasArgVal(args, "img") == true)
   {
     PATH = iftGetArg(args, "img");
 
@@ -197,7 +199,7 @@ void readImgInputs
 
   if(iftExistArg(args, "mask") == true)
   {
-    if(iftHasArgVal(args, "mask") == true) 
+    if(iftHasArgVal(args, "mask") == true)
     {
       PATH = iftGetArg(args, "mask");
 
@@ -211,7 +213,7 @@ void readImgInputs
 
   if(iftExistArg(args, "objsm") == true)
   {
-    if(iftHasArgVal(args, "objsm") == true) 
+    if(iftHasArgVal(args, "objsm") == true)
     {
       PATH = iftGetArg(args, "objsm");
 
@@ -236,47 +238,49 @@ void setSICLEParams
 
   iftSICLEUseDiagAdj(sicle, !iftExistArg(args, "no-diag-adj"));
 
+  iftSICLEEnableBoost(sicle, iftExistArg(args, "boost"));
+
   if(iftExistArg(args, "max-iters") == true)
   {
-    if(iftHasArgVal(args, "max-iters") == true) 
+    if(iftHasArgVal(args, "max-iters") == true)
     {
       max_iters = atoi(iftGetArg(args, "max-iters"));
-      if(max_iters <= 1) 
+      if(max_iters <= 1)
         iftError("The maximum number of iterations must be greater than 1",
                  "setSICLEParams");
       iftSICLESetMaxIters(sicle, max_iters);
     }
-    else iftError("No maximum number of iterations was given", 
+    else iftError("No maximum number of iterations was given",
                   "setSICLEParams");
   }
 
   if(iftExistArg(args, "n0") == true)
   {
-    if(iftHasArgVal(args, "n0") == true) 
+    if(iftHasArgVal(args, "n0") == true)
     {
       n0 = atoi(iftGetArg(args, "n0"));
       iftSICLESetN0(sicle, n0);
     }
     else iftError("No initial number of seeds was given", "setSICLEParams");
   }
-  
+
   if(iftExistArg(args, "nf") == true)
   {
-    if(iftHasArgVal(args, "nf") == true) 
+    if(iftHasArgVal(args, "nf") == true)
     {
       nf = atoi(iftGetArg(args, "nf"));
-	  
+
 	  if(nf < iftSICLEGetN0(*sicle)) iftSICLESetNf(sicle, nf);
-      else iftError("The number of superpixels must be greater than N0", 
+      else iftError("The number of superpixels must be greater than N0",
                     "setSICLEParams");
     }
-    else iftError("No desired quantity of superpixels was given", 
+    else iftError("No desired quantity of superpixels was given",
                   "setSICLEParams");
   }
 
   if(iftExistArg(args, "scales") == true)
   {
-    if(iftHasArgVal(args, "scales") == true) 
+    if(iftHasArgVal(args, "scales") == true)
     {
       const char *VAL;
       int i, prev;
@@ -317,13 +321,15 @@ void setSICLEParams
 	  scales = calloc(num_scales, sizeof(int));
 	  while(i > 0)
 		scales[--i] = iftRemoveSet(&list_scales);
-	  
+
       iftSICLESetScales(sicle, num_scales, scales);
 	  free(scales);
     }
-    else iftError("No list of superpixel scales was given", 
+    else iftError("No list of superpixel scales was given",
                   "setSICLEParams");
   }
+
+
 }
 
 void setSICLESampl
@@ -342,9 +348,9 @@ void setSICLESampl
 
       OPT = iftGetArg(args, "sampl-op");
 
-      if(iftCompareStrings(OPT, "grid")) 
+      if(iftCompareStrings(OPT, "grid"))
         iftSICLESetSamplOpt(sicle, IFT_SICLE_SAMPL_GRID);
-      else if(iftCompareStrings(OPT, "rnd")) 
+      else if(iftCompareStrings(OPT, "rnd"))
         iftSICLESetSamplOpt(sicle, IFT_SICLE_SAMPL_RND);
       else iftError("Unknown seed sampling algorithm", "setSICLESampl");
     }
@@ -368,9 +374,9 @@ void setSICLEArcCost
 
       OPT = iftGetArg(args, "arc-op");
 
-      if(iftCompareStrings(OPT, "root")) 
+      if(iftCompareStrings(OPT, "root"))
         iftSICLESetArcCostOpt(sicle, IFT_SICLE_ARCCOST_ROOT);
-      else if(iftCompareStrings(OPT, "dyn")) 
+      else if(iftCompareStrings(OPT, "dyn"))
         iftSICLESetArcCostOpt(sicle, IFT_SICLE_ARCCOST_DYN);
       else iftError("Unknown arc-cost function", "setSICLEArcCost");
     }
@@ -394,17 +400,17 @@ void setSICLERem
 
       OPT = iftGetArg(args, "rem-op");
 
-      if(iftCompareStrings(OPT, "min-contr")) 
+      if(iftCompareStrings(OPT, "min-contr"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_MINCONTR);
-      else if(iftCompareStrings(OPT, "max-contr")) 
+      else if(iftCompareStrings(OPT, "max-contr"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_MAXCONTR);
-      else if(iftCompareStrings(OPT, "max-sc")) 
+      else if(iftCompareStrings(OPT, "max-sc"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_MAXSC);
-      else if(iftCompareStrings(OPT, "min-sc")) 
+      else if(iftCompareStrings(OPT, "min-sc"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_MINSC);
-      else if(iftCompareStrings(OPT, "size")) 
+      else if(iftCompareStrings(OPT, "size"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_SIZE);
-      else if(iftCompareStrings(OPT, "rnd")) 
+      else if(iftCompareStrings(OPT, "rnd"))
         iftSICLESetRemOpt(sicle, IFT_SICLE_REM_RND);
       else iftError("Unknown seed removal criterion", "setSICLERem");
     }

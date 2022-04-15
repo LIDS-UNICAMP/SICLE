@@ -21,24 +21,24 @@ extern "C" {
 *
 \*****************************************************************************/
 /* Contains all the sampling options avaliable */
-typedef enum ift_sicle_sampl_opt 
+typedef enum ift_sicle_sampl_opt
 {
   IFT_SICLE_SAMPL_GRID, // Grid sampling (a.k.a. equally distanced seeds)
   IFT_SICLE_SAMPL_RND, // Random sampling
 } iftSICLESampl;
 
 /* Contains all the arc-cost options avaliable */
-typedef enum ift_sicle_arccost_opt 
+typedef enum ift_sicle_arccost_opt
 {
   IFT_SICLE_ARCCOST_ROOT, // Root-based arc-cost estimation
   IFT_SICLE_ARCCOST_DYN, // Dynamic arc-cost estimation
 } iftSICLEArcCost;
 
-/* 
-  Contains all the seed removal criterion avaliable. If a saliency map is 
-  provided, then they become object-based (except random removal) 
+/*
+  Contains all the seed removal criterion avaliable. If a saliency map is
+  provided, then they become object-based (except random removal)
 */
-typedef enum ift_sicle_rem 
+typedef enum ift_sicle_rem
 {
   IFT_SICLE_REM_MAXCONTR, // Maximum Contrast-based removal
   IFT_SICLE_REM_MINCONTR, // Minimum Contrast-based removal
@@ -64,15 +64,15 @@ typedef struct ift_sicle_alg iftSICLE;
 //===========================================================================//
 /*
   Creates a new SICLE object considering the given image in parameter. The user
-  may provide a mask (whose dimensions must be the same as the image's), or 
-  simply setting it to NULL, indicating that are no spel restrictions. 
-  Similarly, it is possible to provide an object saliency map or set it to 
-  NULL. 
+  may provide a mask (whose dimensions must be the same as the image's), or
+  simply setting it to NULL, indicating that are no spel restrictions.
+  Similarly, it is possible to provide an object saliency map or set it to
+  NULL.
 
   The default values are:
     N0 = 3000, Nf = 200, Maximum number of iterations = 5
     Adjacency relation = 8-adjacency
-	No scales to output
+    No scales to output
     Arc-cost Function = Root
     Sampling option = Random
     Seed removal criterion = Size and Minimum Contrast
@@ -125,7 +125,7 @@ int *iftSICLEGetScales
 //===========================================================================//
 /*
   Sets the desired maximum number of iterations for segmentation. Note that
-  SICLE may require fewer iterations than the established maximum. 
+  SICLE may require fewer iterations than the established maximum.
 */
 void iftSICLESetMaxIters
 (iftSICLE **sicle, const int max_iters);
@@ -139,26 +139,32 @@ void iftSICLESetN0
 (iftSICLE **sicle, const int n0);
 
 /*
-  Sets the desired final number of superpixels in the segmentation. The new 
+  Sets the desired final number of superpixels in the segmentation. The new
   quantity must be fewer than, or equal to, the initial number of seeds.
 */
 void iftSICLESetNf
 (iftSICLE **sicle, const int nf);
 
-/* 
+/*
   Sets if the number of superpixel segmentation scales and their superpixel
   quantity over the default single-result exponential computation.
 */
 void iftSICLESetScales
 (iftSICLE **sicle, const int num_scales, const int* scales);
 
-/* 
+/*
   Sets if the diagonal adjacency relation (i.e., 8-adjacency) is to
   be used during the segmentation. If not, then the 4-adjacency
   is used.
 */
 void iftSICLEUseDiagAdj
 (iftSICLE **sicle, const bool use);
+
+/*
+TODO
+*/
+void iftSICLEEnableBoost
+(iftSICLE **sicle, const bool enable);
 
 //===========================================================================//
 // SEED SAMPLING
@@ -209,11 +215,15 @@ void iftSICLESetRemOpt
 //===========================================================================//
 // VERIFIERS
 //===========================================================================//
-/* 
+/*
   Verifies whether the algorithm is considering the diagonal adjacents (i.e.,
   26- or 8-adjacency).
 */
 bool iftSICLEUsingDiagAdj
+(const iftSICLE *sicle);
+
+/* TODO */
+bool iftSICLEBoostEnabled
 (const iftSICLE *sicle);
 
 //===========================================================================//
