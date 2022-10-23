@@ -10,7 +10,7 @@ This software includes four programs:
 - One for creating an object's minimum bounding box image from a ground-truth;
 - One for assessing a superpixel segmentation (Boundary Recall and Under-segmentation Error);
 
-Please cite the aforementioned paper if you use any of this software in your own project.
+Please cite the aforementioned papers if you use any of this software in your own project.
 
 ### Hardware, Setup and Requirements
 
@@ -21,11 +21,8 @@ All code within this project were developed, compiled and tested using the follo
 - **[GNU Make](https://www.gnu.org/software/make/)**: version 4.1
 
 This code was implemented and evaluated in a computer with the following specifications:
-- **Model:** Acer X555LB
-- **Operational System:** Linux Mint v20.2 x86_64 kernel version 5.4.0-86-generic
-- **Order:** Little-Endian
-- **CPU:** 4x Dual-core Intel(R) Core(TM) i5-5200 @ 2.20 GHz
-- **Memory:** 8GB RAM ; 480 SSD
+- **CPU:** 64-bit Intel(R) Core(TM) i7-4790 @ 3.20 GHz
+- **Memory:** 8GB RAM
 
 The library has in-built support for handling **PNM** images. For enabling external library support, please refer to the [README](externals/README.md) file within the **externals** folder.
 
@@ -90,7 +87,7 @@ All codes within this project are under the **MIT License**. See the [LICENSE](L
 
 ### Acknowledgements
 
-This work was financially supported by the following brazilian research funding agencies: 
+This work was financially supported by the following funding agencies: 
 - Conselho Nacional de Desenvolvimento Científico e Tecnológico (CNPq)
 - Coordenação de Aperfeiçoamento de Pessoal de Nível Superior (CAPES)
 - Fundação de Amparo à Pesquisa do Estado de Minas Gerais (FAPEMIG)
