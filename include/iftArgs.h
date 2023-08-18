@@ -15,64 +15,84 @@ extern "C" {
 
 #include "ift.h"
 
-/*****************************************************************************\
-*
-*                                   STRUCTS
-*
-\*****************************************************************************/
-/*
-  Stores the references of the arguments given in the command line interface,
-  simplifying the process of parsing its content for most practical standalone
-  applications.
-*/
+//############################################################################|
+// 
+//  STRUCTS, ENUMS, UNIONS & TYPEDEFS
+//
+//############################################################################|
 typedef struct ift_args iftArgs;
 
-/*****************************************************************************\
-*
-*                               PUBLIC FUNCTIONS
-*
-\*****************************************************************************/
-//===========================================================================//
-// CONSTRUCTOR & DESTRUCTOR
-//===========================================================================//
+//############################################################################|
+// 
+//  PUBLIC METHODS
+//
+//############################################################################|
+//============================================================================|
+// Constructors & Destructors
+//============================================================================|
 /*
-  Creates a new iftArgs object in which references to the array of arguments
-  given in parameter. The user must also provide the exact number of arguments
-  within the given array.
-*/
+ * Creates an instance containing a reference to the array of arguments given
+ * in parameter.
+ *
+ * PARAMETERS:
+ *		argc[in] - REQUIRED: Number of arguments
+ *		argv[in] - REQUIRED: Argument array from command-line
+ *
+ * RETURNS: Instance of the object
+ */
 iftArgs *iftCreateArgs
 (const int argc, const char **argv);
 
 /*
-  Deallocates the object memory and sets it to NULL.
-*/
+ * Deallocates the respective object 
+ *
+ * PARAMETERS:
+ *		args[in/out] - REQUIRED: Pointer to the object to be free'd
+ */
 void iftDestroyArgs
 (iftArgs **args);
 
-//===========================================================================//
-// GETTER
-//===========================================================================//
+//============================================================================|
+// Getters & Setters & Verifiers
+//============================================================================|
 /*
-  Gets the original string value associated to the argument token provided in 
-  parameter. The token MUST NOT contain the default prefix.
-*/
+ * Gets the string value associated to the argument token provided. That is,
+ * the string at i+1 given the token at i. The token MUST NOT contain the
+ * default prefix "--".
+ *
+ * PARAMETERS:
+ *		args[in] - REQUIRED: Program's arguments 
+ *		token[in] - REQUIRED: Token (sans prefix)
+ *
+ * RETURNS: A string, if the token was found; NULL, otherwise. 
+ */
 const char *iftGetArg
 (const iftArgs *args, const char *token);
 
-//===========================================================================//
-// VERIFIERS
-//===========================================================================//
-/*  
-  Verifies if the argument token exists in the container. The token MUST NOT
-  contain the default prefix.
-*/
+/*
+ * Verifies if the token exists within the program's arguments. The token MUST
+ * NOT contain the default prefix "--".
+ *
+ * PARAMETERS:
+ *		args[in] - REQUIRED: Program's arguments 
+ *		token[in] - REQUIRED: Token (sans prefix)
+ *
+ * RETURNS: True, if the token exists; false, otherwise.
+ */
 bool iftExistArg
 (const iftArgs *args, const char *token);
 
 /*
-  Verifies if the existing argument token has a value associated to it. The 
-  token MUST NOT contain the default prefix.
-*/
+ * Verifies whether the token provided has a value associated to it. That is,
+ * if exists a string at i+1 given the token at i. The token MUST NOT contain
+ * the default prefix "--".
+ *
+ * PARAMETERS:
+ *		args[in] - REQUIRED: Program's arguments 
+ *		token[in] - REQUIRED: Token (sans prefix)
+ *
+ * RETURNS: True, if the token has a value; false, otherwise.
+ */
 bool iftHasArgVal
 (const iftArgs *args, const char *token);
 

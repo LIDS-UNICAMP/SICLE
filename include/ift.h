@@ -91,6 +91,31 @@ typedef struct ift_voxel_size {
 void iftCopyVoxel(iftVoxel *src, iftVoxel *dst);
 
 // ---------- iftBasicDataTypes.h end
+// ---------- iftList.h start
+typedef struct _ift_node {
+    int elem;
+    struct _ift_node *previous;
+    struct _ift_node *next;
+} iftNode;
+
+
+typedef struct _ift_list {
+    /** Number of Nodes of the Integer Doubly Linked List */
+    int n;
+    /** Pointer to the Head (first) Node */
+    iftNode *head;
+    /** Pointer to the Tail (last) Node */
+    iftNode *tail;
+} iftList;
+
+iftList *iftCreateList();
+void iftDestroyList(iftList **L);
+bool iftIsEmptyList(const iftList *L);
+void iftInsertListIntoHead(iftList *L, int elem);
+void iftInsertListIntoTail(iftList *L, int elem);
+int iftRemoveListHead(iftList *L);
+int iftRemoveListTail(iftList *L);
+// ---------- iftList.h end
 // ---------- iftIntArray.h start
 
 struct ift_int_array {
@@ -434,8 +459,6 @@ void iftPutXYSlice(iftImage *img, const iftImage *slice, int zcoord);
 iftImage *iftGetXYSlice(const iftImage *img, int zcoord);
 iftImage *iftBMapToBinImage(const iftBMap *bmap, int xsize, int ysize, int zsize);
 iftBMap *iftBinImageToBMap(const iftImage *bin_img);
-
-void iftConvertNewBitDepth(iftImage **img, int new_depth);
 // ---------- iftImage.h end
 // ---------- iftMatrix.h start 
 
@@ -512,6 +535,10 @@ char *iftAllocString(long n);
 #define iftSwap(x, y) do { __typeof__(x) _IFT_SWAP_ = x; x = y; y = _IFT_SWAP_; } while (0)
 
 // ---------- iftMemory.h end
+// ---------- iftSegmentation.h start 
+iftImage *iftThreshold(const iftImage *img, int lowest, int highest, int value);
+iftImage *iftBorderImage(const iftImage *label, bool get_margins);
+// ---------- iftSegmentation.h end
 // ---------- iftSet.h start 
 
 typedef struct ift_set {
@@ -691,6 +718,15 @@ void iftDestroyCSV(iftCSV **csv);
 //===========================================================================//
 // ADDED BY FELIPE
 //===========================================================================//
+typedef char int8;
+typedef unsigned char uint8;
+typedef short int16;
+typedef unsigned short uint16;
+typedef int int32;
+typedef unsigned int uint32;
+typedef long int64;
+typedef unsigned long uint64;
+
 void iftConvertNewBitDepth
 (iftImage **img, int new_depth);
 void iftWriteVolumeAsSingleVideoFolder
@@ -706,6 +742,31 @@ inline float iftEuclDistance
   for(int i = 0; i < n; ++i) dist += (u[i] - v[i]) * (u[i] - v[i]);
   
   return sqrtf(dist);
+}
+
+inline float iftFastNatPow
+(float base, int exp)
+{
+    #if IFT_DEBUG
+  assert(exp >= 0);
+  #endif  
+  int n;
+  float a, c;
+
+  a = 1;
+  c = base;
+  n = exp;
+  while(n > 0)
+  {
+    int r;
+
+    r = n % 2;
+    if(r == 1){ a *= c; }
+    n /= 2;
+    c *= c;
+  }
+
+  return a;
 }
 
 #endif // _IFT_H_

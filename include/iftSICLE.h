@@ -2,7 +2,7 @@
 * iftSICLE.h
 *
 * AUTHOR  : Felipe Belem
-* DATE    : 2021-07-08
+* DATE    : 2022-06-15
 * LICENSE : MIT License
 * EMAIL   : felipe.belem@ic.unicamp.br
 \*****************************************************************************/
@@ -15,226 +15,163 @@ extern "C" {
 
 #include "ift.h"
 
-/*****************************************************************************\
-*
-*                               PUBLIC STRUCTS
-*
-\*****************************************************************************/
-/* Contains all the sampling options avaliable */
-typedef enum ift_sicle_sampl_opt
+//############################################################################|
+// 
+//	STRUCTS, ENUMS, UNIONS & TYPEDEFS
+//
+//############################################################################|
+typedef enum ift_sicle_sampl
 {
-  IFT_SICLE_SAMPL_GRID, // Grid sampling (a.k.a. equally distanced seeds)
-  IFT_SICLE_SAMPL_RND, // Random sampling
+  IFT_SICLE_SAMPL_RND, // Random seed selection
+  IFT_SICLE_SAMPL_GRID, // Grid seed selection
+  IFT_SICLE_SAMPL_CUSTOM, // Custom relevance penalization
 } iftSICLESampl;
 
-/* Contains all the arc-cost options avaliable */
-typedef enum ift_sicle_arccost_opt
+typedef enum ift_sicle_pen
 {
-  IFT_SICLE_ARCCOST_ROOT, // Root-based arc-cost estimation
-  IFT_SICLE_ARCCOST_DYN, // Dynamic arc-cost estimation
-} iftSICLEArcCost;
+  IFT_SICLE_PEN_NONE, // No seed relevance penalization
+  IFT_SICLE_PEN_OBJ, // Penalize if outside or far from object borders
+  IFT_SICLE_PEN_BORD, // Penalize if far from object borders
+  IFT_SICLE_PEN_OSB, // Penalize if outside and too close to adjacents 
+  IFT_SICLE_PEN_BOBS, // Penalize if within object and too close to adjacents
+  IFT_SICLE_PEN_CUSTOM, // Custom relevance penalization
+} iftSICLEPen;
 
-/*
-  Contains all the seed removal criterion avaliable. If a saliency map is
-  provided, then they become object-based (except random removal)
-*/
-typedef enum ift_sicle_rem
+typedef enum ift_sicle_conn
 {
-  IFT_SICLE_REM_MAXCONTR, // Maximum Contrast-based removal
-  IFT_SICLE_REM_MINCONTR, // Minimum Contrast-based removal
-  IFT_SICLE_REM_SIZE, // Size-based removal
-  IFT_SICLE_REM_RND, // Random removal
-  IFT_SICLE_REM_MAXSC, // Size- and maximum contrast-based removal
-  IFT_SICLE_REM_MINSC, // Size- and minimum contrast-based removal
-} iftSICLERem;
+	IFT_SICLE_CONN_FMAX, // Irregular
+	IFT_SICLE_CONN_FSUM, // Boundary- and compacity-controlled
+  IFT_SICLE_CONN_CUSTOM, // Custom connectivity function
+} iftSICLEConn;
 
-/*
-  Contains the parameters and auxiliary data structures for facilitating the
-  construction of a SICLE variant algorithm.
-*/
+typedef enum ift_sicle_crit
+{
+  IFT_SICLE_CRIT_SIZE, // Size only
+  IFT_SICLE_CRIT_MAXSC, // Size and maximum contrast
+	IFT_SICLE_CRIT_MINSC, // Size and minimum contrast
+	IFT_SICLE_CRIT_SPREAD, // Size and minimum adjacent distance
+	IFT_SICLE_CRIT_CUSTOM, // Custom relevance function
+} iftSICLECrit;
+
+typedef struct ift_sicle_args
+{
+	bool use_diag; // Flag: use 8- or 26-neighborhood. Default: true
+  bool use_dift; // Flag: use differential computation. Default: true
+	int n0; // Initial quantity of seeds. Default: 3000
+	int nf; // Final quantity of superspels. Default: 200
+	int max_iters; // Maximum number of iterations for segmentation. Default: 5
+	int adhr; // Fsum: Boundary adherence factor. Default: 12
+  float irreg; // Fsum: Irregularity factor. Default: 0.12
+  float alpha; // Saliency information importance. Default: 0
+  iftIntArray *user_ni; // User-defined intermediary quantity of seeds.
+  iftSICLESampl samplopt; // Option: Seed oversampling option: Default RND
+	iftSICLEConn connopt; // Option: IFT connectivity function. Default: FMAX
+	iftSICLECrit critopt; // Option: Seed removal criterion. Default: MINSC
+  iftSICLEPen penopt; // Option: Seed relevance penalization. Default: NONE
+} iftSICLEArgs;
+
 typedef struct ift_sicle_alg iftSICLE;
 
-/*****************************************************************************\
-*
-*                               PUBLIC FUNCTIONS
-*
-\*****************************************************************************/
-//===========================================================================//
-// CONSTRUCTOR & DESTRUCTOR
-//===========================================================================//
+//############################################################################|
+// 
+//	PUBLIC METHODS
+//
+//############################################################################|
+//============================================================================|
+// Constructors & Destructors
+//============================================================================|
 /*
-  Creates a new SICLE object considering the given image in parameter. The user
-  may provide a mask (whose dimensions must be the same as the image's), or
-  simply setting it to NULL, indicating that are no spel restrictions.
-  Similarly, it is possible to provide an object saliency map or set it to
-  NULL.
+ * Creates an instance with the default parametrization for SICLE.
+ *
+ * RETURNS: Default instance of the object
+ */
+iftSICLEArgs *iftCreateSICLEArgs();
 
-  The default values are:
-    N0 = 3000, Nf = 200, Maximum number of iterations = 5
-    Adjacency relation = 8-adjacency
-    No scales to output
-    Arc-cost Function = Root
-    Sampling option = Random
-    Seed removal criterion = Size and Minimum Contrast
-    No mask and no object saliency map.
-*/
+/*
+ * Creates an instance with respect to the input images provided. You may free
+ * the inputs since they are copied to the structure.
+ *
+ * PARAMETERS:
+ *	img[in] - REQUIRED: Original image to be segmented
+ *	objsm[in] - OPTIONAL: Grayscale object saliency map
+ *	mask[in] - OPTIONAL: Binary mask indication the region of interest
+ *
+ * RETURNS: SICLE prototype
+ */
 iftSICLE *iftCreateSICLE
-(const iftImage *img, const iftImage *mask, const iftImage *objsm);
+(iftImage *img, iftImage *objsm, iftImage *mask);
 
 /*
-  Deallocates the memory stored for the object and sets it to NULL.
-*/
+ * Deallocates the respective object 
+ *
+ * PARAMETERS:
+ *	args[in/out] - REQUIRED: Pointer to the object to be free'd
+ */
+void iftDestroySICLEArgs
+(iftSICLEArgs **args);
+
+/*
+ * Deallocates the respective object 
+ *
+ * PARAMETERS:
+ *	sicle[in/out] - REQUIRED: Pointer to the object to be free'd
+ */
 void iftDestroySICLE
 (iftSICLE **sicle);
 
-//===========================================================================//
-// GETTERS
-//===========================================================================//
+//============================================================================|
+// Runner
+//============================================================================|
 /*
-  Gets the current desired maximum number of iterations for segmentation
-*/
-int iftSICLEGetMaxIters
-(const iftSICLE *sicle);
-
-/*
-  Gets the current desired initial quantity of seeds to be sampled
-*/
-int iftSICLEGetN0
-(const iftSICLE *sicle);
-
-/*
-  Gets the current desired final number of superpixels in the segmentation
-*/
-int iftSICLEGetNf
-(const iftSICLE *sicle);
-
-/*
-  Gets the number of superpixel segmentation scales to be computed
-*/
-int iftSICLEGetNumScales
-(const iftSICLE *sicle);
+ * Verifies whether the arguments are valid with respect to the SICLE prototype
+ * provided. If yes, nothing happens; otherwise, an error is thrown. A set of
+ * arguments is valid if:
+ * 	1) N0 in ]2,|V|[; 
+ *  2) Nf in [2, N0[; 
+ *  3) Maximum number of iterations > 1; 
+ * 	4) Compacity (Fsum) >= 0 ;
+ *  5) Adherence (Fsum) >= 0 ;
+ *  6) Alpha >= 0 ;
+ *  7) Penalization should be none when no saliency is provided ;
+ * 
+ * PARAMETERS
+ * 	sicle[in] - REQUIRED: SICLE prototype
+ * 	args[in] - REQUIRED: SICLE arguments
+ */
+void iftVerifySICLEArgs
+(iftSICLE *sicle, iftSICLEArgs *args);
 
 /*
-  Gets the superpixel segmentation scales to be computed
-*/
-int *iftSICLEGetScales
-(const iftSICLE *sicle);
-
-//===========================================================================//
-// SETTERS
-//===========================================================================//
-/*
-  Sets the desired maximum number of iterations for segmentation. Note that
-  SICLE may require fewer iterations than the established maximum.
-*/
-void iftSICLESetMaxIters
-(iftSICLE **sicle, const int max_iters);
-
-/*
-  Sets the desired initial quantity of seeds to be sampled. Depending of the
-  algorithm, such number may not be guaranteed. The new quantity must be greater
-  than, or equal to, the final number of superpixels.
-*/
-void iftSICLESetN0
-(iftSICLE **sicle, const int n0);
+ * Runs the SICLE algorithm with the prototype and arguments provided, and 
+ * returns a label image whose values are within [1,Nf], or [0,Nf] if a mask
+ * was provided.
+ * 
+ * PARAMETERS:
+ *  sicle[in] - REQUIRED: SICLE prototype
+ *  args[in] - OPTIONAL: SICLE arguments
+ *
+ * RETURNS: Superspel segmentation whose labels are within [1,Nf] or [0,Nf]
+ * 	if a mask was provided.
+ */
+iftImage *iftRunSICLE
+(iftSICLE *sicle, iftSICLEArgs *args);
 
 /*
-  Sets the desired final number of superpixels in the segmentation. The new
-  quantity must be fewer than, or equal to, the initial number of seeds.
-*/
-void iftSICLESetNf
-(iftSICLE **sicle, const int nf);
-
-/*
-  Sets if the number of superpixel segmentation scales and their superpixel
-  quantity over the default single-result exponential computation.
-*/
-void iftSICLESetScales
-(iftSICLE **sicle, const int num_scales, const int* scales);
-
-/*
-  Sets if the diagonal adjacency relation (i.e., 8-adjacency) is to
-  be used during the segmentation. If not, then the 4-adjacency
-  is used.
-*/
-void iftSICLEUseDiagAdj
-(iftSICLE **sicle, const bool use);
-
-/*
-TODO
-*/
-void iftSICLEEnableBoost
-(iftSICLE **sicle, const bool enable);
-
-//===========================================================================//
-// SEED SAMPLING
-//===========================================================================//
-/*
-  Gets the current seed sampling algorithm
-*/
-iftSICLESampl iftSICLEGetSamplOpt
-(const iftSICLE *sicle);
-
-/*
-  Sets to the desired seed sampling algorithm
-*/
-void iftSICLESetSamplOpt
-(iftSICLE **sicle, const iftSICLESampl sampl_opt);
-
-//===========================================================================//
-// ARC COST FUNCTION
-//===========================================================================//
-/*
-  Gets the current arc-cost function
-*/
-iftSICLEArcCost iftSICLEGetArcCostOpt
-(const iftSICLE *sicle);
-
-/*
-  Sets to the desired arc-cost function
-*/
-void iftSICLESetArcCostOpt
-(iftSICLE **sicle, const iftSICLEArcCost arc_opt);
-
-
-//===========================================================================//
-// SEED REMOVAL
-//===========================================================================//
-/*
-  Gets the current seed removal criterion
-*/
-iftSICLERem iftSICLEGetRemOpt
-(const iftSICLE *sicle);
-
-/*
-  Sets to the desired seed removal criterion
-*/
-void iftSICLESetRemOpt
-(iftSICLE **sicle, const iftSICLERem rem_opt);
-
-//===========================================================================//
-// VERIFIERS
-//===========================================================================//
-/*
-  Verifies whether the algorithm is considering the diagonal adjacents (i.e.,
-  26- or 8-adjacency).
-*/
-bool iftSICLEUsingDiagAdj
-(const iftSICLE *sicle);
-
-/* TODO */
-bool iftSICLEBoostEnabled
-(const iftSICLE *sicle);
-
-//===========================================================================//
-// RUNNER
-//===========================================================================//
-/*
-  Runs the SICLE algorithm considering the configuration and parameters defined
-  in the given object.
-*/
-iftImage **iftRunSICLE
-(const iftSICLE *sicle);
+ * Runs the SICLE algorithm with the prototype and arguments provided, and 
+ * returns a multiscale label image whose values are within [1,Nf], or [0,Nf] 
+ * if a mask was provided. The scales are ordered from the first iteration to
+ * the last one.
+ * 
+ * PARAMETERS:
+ *  sicle[in] - REQUIRED: SICLE prototype
+ *  args[in] - OPTIONAL: SICLE arguments
+ *  num_scales[out] - OPTIONAL: Number of scales generated
+ *
+ * RETURNS: Multiscale superspel segmentation whose labels are within [1,Nf] 
+ *          or [0,Nf] if a mask was provided.
+ */
+iftImage **iftRunMultiscaleSICLE
+(iftSICLE *sicle, iftSICLEArgs *args, int *num_scales);
 
 #ifdef __cplusplus
 }

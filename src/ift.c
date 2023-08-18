@@ -21,6 +21,145 @@ void iftCopyVoxel(iftVoxel *src, iftVoxel *dst)
 }
 
 // ---------- iftBasicDataTypes.c end
+// ---------- iftList.h start
+iftList *iftCreateList() {
+    iftList *L = (iftList *) iftAlloc(1, sizeof(iftList));
+    
+    // just to really force
+    L->n    = 0;
+    L->head = NULL;
+    L->tail = NULL;
+    
+    return L;
+}
+
+
+void iftDestroyList(iftList **L) {
+    iftList *L_aux = *L;
+    
+    if (L_aux != NULL) {
+        iftNode *snode = L_aux->head;
+        iftNode *tnode = NULL;
+        
+        while (snode != NULL) {
+            tnode = snode;
+            snode = snode->next;
+            iftFree(tnode);
+        }
+        iftFree(L_aux);
+        *L = NULL;
+    }
+}
+
+
+bool iftIsEmptyList(const iftList *L) {
+    return (L->n == 0);
+}
+
+
+void iftInsertListIntoHead(iftList *L, int elem) {
+    if (L == NULL)
+        iftError("The Integer Doubly Linked List L is NULL. Allocated it firstly", "iftInsertListIntoHead");
+    
+    iftNode *node  = (iftNode*) iftAlloc(1, sizeof(iftNode));
+    node->elem     = elem;
+    node->previous = NULL;
+    node->next     = NULL;
+    
+    
+    // The String Linked List is empty
+    if (L->head == NULL) {
+        L->head = node;
+        L->tail = node;
+        L->n    = 1;
+    }
+    else {
+        node->next        = L->head;
+        L->head->previous = node;
+        L->head           = node;
+        L->n++;
+    }
+}
+
+
+void iftInsertListIntoTail(iftList *L, int elem) {
+    if (L == NULL)
+        iftError("The Integer Linked List L is NULL. Allocated it firstly", "iftInsertListIntoTail");
+    
+    iftNode *node  = (iftNode*) iftAlloc(1, sizeof(iftNode));
+    node->elem     = elem;
+    node->previous = NULL;
+    node->next     = NULL;
+    
+    
+    // The String Linked List is empty
+    if (L->head == NULL) {
+        L->head = node;
+        L->tail = node;
+        L->n    = 1;
+    }
+    else {
+        L->tail->next  = node;
+        node->previous = L->tail;
+        L->tail        = node;
+        L->n++;
+    }
+}
+
+
+int iftRemoveListHead(iftList *L) {
+    if (L == NULL)
+        iftError("The Doubly Linked List L is NULL. Allocated it firstly", "iftRemoveListHead");
+    
+    int elem      = IFT_NIL;
+    iftNode *node = NULL;
+    
+    // if there are elements
+    if (L->head != NULL) {
+        node    = L->head;
+        L->head = L->head->next;
+        
+        // checks if the list is empty now
+        if (L->head == NULL)
+            L->tail = NULL;
+        else
+            L->head->previous = NULL;
+        
+        L->n--;
+        elem = node->elem;
+        iftFree(node);
+    }
+    
+    return elem;
+}
+
+
+int iftRemoveListTail(iftList *L) {
+    if (L == NULL)
+        iftError("The Integer Doubly Linked List L is NULL. Allocated it firstly", "iftRemoveListTail");
+    
+    int elem      = IFT_NIL;
+    iftNode *node = NULL;
+    
+    // if there are elements
+    if (L->head != NULL) {
+        node    = L->tail;
+        L->tail = L->tail->previous;
+        
+        // checks if the list is empty now
+        if (L->tail == NULL)
+            L->head = NULL;
+        else
+            L->tail->next = NULL;
+        
+        L->n--;
+        elem = node->elem;
+        iftFree(node);
+    }
+    
+    return elem;
+}
+// ---------- iftList.h end
 // ---------- iftIntArray.c start
 
 iftIntArray *iftCreateIntArray(long n) 
@@ -2943,7 +3082,7 @@ iftImage *iftBMapToBinImage(const iftBMap *bmap, int xsize, int ysize, int zsize
     iftImage *bin = iftCreateImage(xsize, ysize, zsize);
 
     for (int p = 0; p < bmap->n; p++)
-        bin->val[p] = iftBMapValue(bmap, p);
+        bin->val[p] = iftBMapValue(bmap, p)*255;
 
     return bin;
 }
@@ -3517,6 +3656,69 @@ char *iftAllocString(long n)
 }
 
 // ---------- iftMemory.c end
+// ---------- iftSegmentation.c start 
+
+iftImage *iftThreshold(const iftImage *img, int lowest, int highest, int value) 
+{
+    iftImage *bin = iftCreateImageFromImage(img);
+
+    for (int p = 0; p < img->n; p++) 
+        if ((img->val[p] >= lowest) && (img->val[p] <= highest))
+            bin->val[p] = value;
+        else bin->val[p] = 0;
+
+    return bin;
+}
+
+iftImage *iftBorderImage(const iftImage *label, bool get_margins)
+{
+ iftAdjRel *A;
+ iftImage  *border = iftCreateImage(label->xsize,label->ysize,label->zsize);
+ int        p,q,i; 
+ iftVoxel   u, v;
+    
+  if (iftIs3DImage(label))
+    A = iftSpheric(1.0);
+  else
+    A = iftCircular(1.0);
+
+  if (get_margins){
+    for(p=0; p < label->n; p++){
+      u = iftGetVoxelCoord(label, p);
+      for(i=1; i < A->n; i++){
+        v = iftGetAdjacentVoxel(A,u,i);
+        if (iftValidVoxel(label, v)){
+          q = iftGetVoxelIndex(label, v);
+          if (label->val[p] != label->val[q]){
+            border->val[p] = label->val[p];
+            break;
+          }
+        } else {
+          border->val[p] = label->val[p];
+        }
+      }
+    }
+  }
+  else{
+    for(p=0; p < label->n; p++) {
+      u = iftGetVoxelCoord(label, p);
+      for (i = 1; i < A->n; i++) {
+        v = iftGetAdjacentVoxel(A, u, i);
+        if (iftValidVoxel(label, v)) {
+          q = iftGetVoxelIndex(label, v);
+          if (label->val[p] != label->val[q]) {
+            border->val[p] = label->val[p];
+            break;
+          }
+        }
+      }
+    }
+  }
+
+    iftDestroyAdjRel(&A);
+    return(border);
+}
+// ---------- iftSegmentation.c end
 // ---------- iftSet.c start 
 
 void iftInsertSet(iftSet **S, int elem)
@@ -4762,6 +4964,7 @@ iftImage* iftReadImageFolderAsVolume(const char* folder_name)
 
         iftDestroyImage(&slice);
     }
+    iftDestroyFileSet(&files);
 
     return volume;
 }
@@ -5261,7 +5464,7 @@ void iftWriteVolumeAsSingleVideoFolder
     {
         char mod_path[IFT_STR_DEFAULT_SIZE];
 
-        sprintf(mod_path, "%s_%0*d%s", base, IFT_VIDEO_FOLDER_FRAME_NZEROES, 
+        sprintf(mod_path, "%s%0*d%s", base, IFT_VIDEO_FOLDER_FRAME_NZEROES, 
                                        i, EXT);
 
         frame = iftGetXYSlice(video, i);
