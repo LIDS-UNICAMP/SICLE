@@ -1,7 +1,6 @@
 ## Superpixels through Iterative CLEarcutting (SICLE)
 
 This is the implementation of the superpixel segmentation method _Superpixels through Iterative CLEarcutting_(SICLE) as proposed in:
--
 - **F.Belém, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Efficient Multiscale Object-based Superpixel Framework_](https://doi.org/10.48550/arXiv.2204.03533). ArXiv preprint.
 - **F.Belém, I.Borlido, L.João, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Fast and Effective Superpixel Segmentation Using Accurate Saliency Estimation_](https://doi.org/10.1007/978-3-031-19897-7_21). Discrete Geometry and Mathematical Morphology, pg. 261-273, 2022.
 - **F.Belém, I.Borlido, L.João, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Novel Arc-Cost Functions and Seed Relevance Estimations for Compact and Accurate Superpixels_](https://doi.org/10.1007/s10851-023-01156-9). Journal of Mathematical Imaging and Vision, 2023.
