@@ -462,7 +462,7 @@ iftSet *iftSICLE_RemoveTrees
   			vj_index = iftMGetVoxelIndex(sicle->mimg, vj_voxel);
   			vj_root = (*data)->root_map[vj_index];
 
-  			if((*data)->cost_map[vj_index] != IFTSICLE_BKGCOST) // If not in bkg
+  			if(iftSICLE_InROI(sicle,vj_index)) // If not in bkg
   			{
   				// If belongs to the subtree being removed at moment
   				if((*data)->pred_map[vj_index] == vi_index)
@@ -539,7 +539,7 @@ void iftSICLE_RemoveSubtree
   			
 	  		if((*data)->pred_map[vj_index] == vi_index) // If belongs to subtree
 				{ iftInsertSet(&remove, vj_index); } // Add to BFS removal
-				else if((*data)->cost_map[vj_index] != IFTSICLE_BKGCOST && // Not bkg
+				else if(iftSICLE_InROI(sicle, vj_index) && // Not bkg
 								(*data)->cost_map[vj_index] != IFTSICLE_TMPCOST && // Reached
 								 !iftBMapValue(marked, vj_index)) // Visited
 				{ 
@@ -666,7 +666,7 @@ iftSICLE_TStats *iftSICLE_CalcTStats
 
   for(int vi_index = 0; vi_index < sicle->mimg->n; ++vi_index)
   {
-    if(data->cost_map[vi_index] != IFTSICLE_BKGCOST)
+    if(iftSICLE_InROI(sicle, vi_index))
     {
     	int vi_label, vi_root;
     	iftVoxel vi_voxel;
@@ -701,7 +701,7 @@ iftSICLE_TStats *iftSICLE_CalcTStats
     			vj_root = data->root_map[vj_index];
 
     			// If it is not on the bkg and has different label
-    			if(data->cost_map[vj_index] != IFTSICLE_BKGCOST && vi_root!=vj_root)
+    			if(iftSICLE_InROI(sicle, vj_index) && vi_root!=vj_root)
     			{ iftBMapSet1(tstats->adj[vi_label], vj_label);}
     		}
     	}
@@ -783,7 +783,7 @@ float iftSICLE_ConnFunction
 			new functionalities for SICLE. For using that, add "--conn-opt custom"
 			in the command-line
 		*/
-		pathcost += 1;
+		pathcost += spat_dist;
 	}
 	else
 	{ iftError("Unknown connectivity function", __func__); }	
@@ -964,13 +964,14 @@ double *iftSICLE_CalcSeedPrio
   for(long ti_index = 0; ti_index < tstats->num_trees; ++ti_index)
   {
     double size_perc, min_color_grad, max_sal_grad, min_dist, num_adjs,
-    			 max_color_grad, dist_perc;
+    			 max_color_grad, dist_perc, max_grad;
 
     size_perc = tstats->size[ti_index]/(float)sicle->mimg->n; 
 
     max_sal_grad = max_color_grad = 0.0;
     min_color_grad = min_dist = IFT_INFINITY_DBL;
     num_adjs = 0;
+		max_grad = 0.0;
   	for(long tj_index = 0; tj_index < tstats->num_trees; ++tj_index)
     {
     	if(iftBMapValue(tstats->adj[ti_index],tj_index))
@@ -983,6 +984,7 @@ double *iftSICLE_CalcSeedPrio
 	      dist= iftEuclDistance(tstats->centr[ti_index], tstats->centr[tj_index],
 	      											 tstats->num_dims);
 
+				if(grad > max_grad) { max_grad = grad; }
 	      if(grad < min_color_grad) { min_color_grad = grad; }
 	      if(grad > max_color_grad) { max_color_grad = grad; }
 	      if(dist < min_dist) { min_dist = dist; }
@@ -994,7 +996,7 @@ double *iftSICLE_CalcSeedPrio
 	      }
     	}
     }
-	dist_perc = min_dist/iftDiagonalSize(sicle->mimg);
+		dist_perc = min_dist/iftDiagonalSize(sicle->mimg);
 
 		if(args->critopt == IFT_SICLE_CRIT_SIZE)
     { prio[ti_index] = size_perc; }
@@ -1011,7 +1013,12 @@ double *iftSICLE_CalcSeedPrio
 				new functionalities for SICLE. For using that, add "--crit-opt custom"
 				in the command-line
 			*/
-    	prio[ti_index] = size_perc*1.0/min_dist;
+			iftColor bkg_tftest_rgb = iftRGBColor(47.4, 48.9, 54.0);// Background rgb color
+			iftFColor bkg_tftest_cielab = iftRGBtoLab(bkg_tftest_rgb, 256);
+			float bkg_grad = iftEuclDistance(tstats->feats[ti_index], bkg_tftest_cielab.val, 3);
+     	 
+      //prio[ti_index] = size_perc*iftMax((1.0 - (bkg_grad*max_color_grad)/(max_grad * max_grad)), (bkg_grad*min_color_grad/(max_grad * max_grad))); 
+      prio[ti_index] = size_perc*iftMax((1.0 - (bkg_grad)/(max_grad)), (bkg_grad*min_color_grad/(max_grad * max_grad))); 
     }
     else 
     { iftError("Unknown seed removal criterion fuction", __func__); }
@@ -1108,7 +1115,6 @@ iftSICLEArgs *iftCreateSICLEArgs()
 	assert(args != NULL);
 
 	args->use_diag = true;
-	args->use_dift = true;
 	args->n0 = 3000;
 	args->nf = 200;
 	args->max_iters = 5;
@@ -1120,6 +1126,7 @@ iftSICLEArgs *iftCreateSICLEArgs()
 	args->connopt = IFT_SICLE_CONN_FMAX;
 	args->critopt = IFT_SICLE_CRIT_MINSC;
 	args->penopt = IFT_SICLE_PEN_NONE;
+	args->optopt = IFT_SICLE_OPT_DIFT;
 
 	return args;
 }
@@ -1309,7 +1316,7 @@ iftImage *iftRunSICLE
   	#ifdef IFT_DEBUG //-------------------------------------------------------|
 		fprintf(stderr, "DEBUG (%s): Iteration %d\n", __func__, it);
 		#endif //-----------------------------------------------------------------|	
-		if(args->use_dift == false || it == 1) // Seq or 1st iter?
+		if(args->optopt == IFT_SICLE_OPT_NONE || it == 1) // Seq or 1st iter?
 		{ iftSICLE_RunSeedIFT(sicle, args, &data); }
 		else 
 		{ iftSICLE_RunSeedDIFT(sicle, args, &data, &irre_seeds); }
@@ -1330,7 +1337,7 @@ iftImage *iftRunSICLE
 	fprintf(stderr, "DEBUG (%s): Last iteration\n", __func__);
 	#endif //-------------------------------------------------------------------|	
 	// Segmentation with Nf seeds
-	if(args->use_dift == false) // Seq?
+	if(args->optopt == IFT_SICLE_OPT_NONE) // Seq?
 	{ iftSICLE_RunSeedIFT(sicle, args, &data); }
 	else 
 	{ iftSICLE_RunSeedDIFT(sicle, args, &data, &irre_seeds); }
@@ -1379,7 +1386,7 @@ iftImage **iftRunMultiscaleSICLE
   	#ifdef IFT_DEBUG //-------------------------------------------------------|
 		fprintf(stderr, "DEBUG (%s): Iteration %d\n", __func__, it);
 		#endif //-----------------------------------------------------------------|	
-		if(args->use_dift == false || it == 1) // Seq or 1st iter?
+		if(args->optopt == IFT_SICLE_OPT_NONE || it == 1) // Seq or 1st iter?
 		{ iftSICLE_RunSeedIFT(sicle, args, &data); }
 		else 
 		{ iftSICLE_RunSeedDIFT(sicle, args, &data, &irre_seeds); }
@@ -1398,7 +1405,7 @@ iftImage **iftRunMultiscaleSICLE
 	#ifdef IFT_DEBUG //---------------------------------------------------------|
 	fprintf(stderr, "DEBUG (%s): Last iteration\n", __func__);
 	#endif //-------------------------------------------------------------------|	
-	if(args->use_dift == false) // Seq?
+	if(args->optopt == IFT_SICLE_OPT_NONE) // Seq?
 	{ iftSICLE_RunSeedIFT(sicle, args, &data); }
 	else 
 	{ iftSICLE_RunSeedDIFT(sicle, args, &data, &irre_seeds); }

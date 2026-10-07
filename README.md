@@ -1,20 +1,24 @@
 ## Superpixels through Iterative CLEarcutting (SICLE)
 
 This is the implementation of the superpixel segmentation method _Superpixels through Iterative CLEarcutting_(SICLE) as proposed in:
-- **F.Belém, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Efficient Multiscale Object-based Superpixel Framework_](https://doi.org/10.48550/arXiv.2204.03533). ArXiv preprint.
+- **F.Belém, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Efficient Multiscale Object-based Superpixel Framework_](https://doi.org/10.5753/jbcs.2025.4278). Journal of the Brazilian Computer Society, pg. 355-372, 2025.
 - **F.Belém, I.Borlido, L.João, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Fast and Effective Superpixel Segmentation Using Accurate Saliency Estimation_](https://doi.org/10.1007/978-3-031-19897-7_21). Discrete Geometry and Mathematical Morphology, pg. 261-273, 2022.
 - **F.Belém, I.Borlido, L.João, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Novel Arc-Cost Functions and Seed Relevance Estimations for Compact and Accurate Superpixels_](https://doi.org/10.1007/s10851-023-01156-9). Journal of Mathematical Imaging and Vision, 2023.
 
+From this implementation, one may reproduce the works below using the proper settings:
+- **F.Belém, S.Guimarães, A.Falcão.** [_Superpixel Segmentation Using Dynamic and Iterative Spanning Forest_](https://doi.org/10.1109/LSP.2020.3015433). Signal Processing Letters, pg. 1440-1444, 2020.
+- **F.Belém, B.Perret, J.Cousty, S.Guimarães, A.Falcão.** [_Towards a Simple and Efficient Object-based Superpixel Delineation Framework_](https://doi.org/10.1109/SIBGRAPI54419.2021.00054.). Conference on Graphics, Patterns and Images (SIBGRAPI), pg. 346-353, 2021.
+
 This software includes nine programs:
 - One for creating an object's minimum bounding box image from a ground-truth;
-- One for creating an image whose superspels are colored by their mean color;
-- One for assisting the visualization of the segmentation by overlaying the superspel borders; 
-- One for creating an image whose superspels are pseudo-colored;
-- One for relabelling the superspels from a superspel segmentation;
+- One for creating an image whose superpixels are colored by their mean color;
+- One for assisting the visualization of the segmentation by overlaying the superpixel borders; 
+- One for creating an image whose superpixels are pseudo-colored;
+- One for relabelling the superpixels from a superpixel segmentation;
 - One for running a SICLE method;
 - One for running the SICLE method in its optimized compact version;
 - One for running the SICLE method in its optimized irregular version;
-- One for assessing a superspel segmentation;
+- One for assessing a superpixel segmentation;
 
 Please cite the aforementioned papers (preferably the last one) if you use any of this software in your own project.
 
@@ -73,7 +77,7 @@ This work was financially supported by the following funding agencies:
 ### Contact
 
 If you have any questions or faced an unexpected behavior (_e.g._ bugs), please feel free to contact the authors through the following email addresses:
-- **Felipe C. Belém**:  [felipe.belem@ic.unicamp.br](mailto:felipe.belem@ic.unicamp.br) or [felipe.belem@esiee.fr](mailto:felipe.belem@esiee.fr)
+- **Felipe C. Belém**:  [felipe.belem@ic.unicamp.br](mailto:felipe.belem@ic.unicamp.br), [felipebelem@pucminas.br](mailto:felipebelem@pucminas.br) or [felipe.belem@esiee.fr](mailto:felipe.belem@esiee.fr)
 - **Benjamin Perret**:  [benjamin.perret@esiee.fr](mailto:benjamin.perret@esiee.fr)
 - **Jean Cousty**:  [jean.cousty@esiee.fr](mailto:jean.cousty@esiee.fr)
 - **Silvio Jamil F. Guimarães**:  [sjamil@pucminas.br](mailto:sjamil@pucminas.br)

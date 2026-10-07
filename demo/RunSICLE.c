@@ -152,7 +152,6 @@ void readSICLEArgs
 	(*sargs) = iftCreateSICLEArgs();
 
 	(*sargs)->use_diag = !iftExistArg(args, "no-diag");
-	(*sargs)->use_dift = !iftExistArg(args, "no-dift");
 
 	if(iftExistArg(args, "max-iters") == true)
 	{
@@ -273,6 +272,23 @@ void readSICLEArgs
 		}
 		else { iftError("No seed removal criterion was given", __func__); }	
 	}
+
+	if(iftExistArg(args, "opt-opt") == true)
+	{
+		if(iftHasArgVal(args, "opt-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "opt-opt");
+
+	    if(iftCompareStrings(VAL, "none"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_NONE; }
+		else if(iftCompareStrings(VAL, "dift"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_DIFT; }
+		else if(iftCompareStrings(VAL, "bift"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_BIFT; }
+	    else iftError("Unknown IFT optimization option", __func__);
+		}
+		else { iftError("No IFT optimization option was given", __func__); }	
+	}
 	
 	if(iftExistArg(args, "ni") == true)
   {
@@ -322,6 +338,9 @@ void usage()
 	printf("%-*s %s\n", SKIP_IND, "--objsm",
 		"Grayscale object saliency map.");
 
+	printf("%-*s %s\n", SKIP_IND, "--sampl-opt",
+		"IFT optimization. Options: "
+		"grid, rnd, custom. Default: rnd");
 	printf("\nSICLE configuration options:\n");
 	printf("%-*s %s\n", SKIP_IND, "--conn-opt",
 		"IFT connectivity function. Options: "
@@ -332,14 +351,16 @@ void usage()
 	printf("%-*s %s\n", SKIP_IND, "--pen-opt",
 		"Seed relevance penalization. Options: "
 		"none, obj, bord, osb, bobs, custom. Default: none");
+	printf("%-*s %s\n", SKIP_IND, "--opt-opt",
+		"IFT optimization. Options: "
+		"none, dift, bift. Default: dift");
 
 	printf("\nOptional general parameters:\n");
 	printf("%-*s %s\n", SKIP_IND, "--multiscale",
 		"Generates a multiscale segmentation.");
 	printf("%-*s %s\n", SKIP_IND, "--no-diag",
 		"Disable diagonal neighborhood (i.e., 8- or 26-adjacency).");
-	printf("%-*s %s\n", SKIP_IND, "--no-dift",
-		"Disable differential computation.");
+	
 	printf("%-*s %s\n", SKIP_IND, "--alpha",
 		"Saliency information importance. Default: 0.0");
 	printf("%-*s %s\n", SKIP_IND, "--irreg",

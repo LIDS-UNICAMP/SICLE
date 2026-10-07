@@ -70,7 +70,6 @@ void readImgInputs
 {
   #if IFT_DEBUG /*###########################################################*/
   assert(args != NULL);
-  assert(img != NULL);
   assert(labels != NULL);
   assert(path != NULL);
   #endif /*##################################################################*/

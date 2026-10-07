@@ -23,21 +23,21 @@ DEMO_DIR = $(HOME_DIR)/demo
 
 INCS = -I$(INC_DIR)
 LIBS_LD = -L$(LIB_DIR)
-LIB_NAME = phd
+LIB_NAME = sicle
 LIBS_LINK = -l$(LIB_NAME)
 LIB_SFIX = .a#.lib for Windows
 
 # Compiler --------------------------------------------------------------------
 # Enabling debugging GNU GCC flags
-IFT_DEBUG = NO
+IFT_DEBUG = YES
 
 # Enabling external libraries
 # OpenMP: Requires version 4.5
 # LibPNG: Requires version 1.6.29
 # LibJPEG: Requires version 9.0
 IFT_OMP = NO
-IFT_LIBPNG = NO
-IFT_LIBJPEG = NO
+IFT_LIBPNG = YES
+IFT_LIBJPEG = YES
 
 # It is expecting a GNU GCC compiler. For other compilers, modifications 
 # might be necessary
@@ -81,7 +81,12 @@ endif
 LIBS_LINK += -lm
 
 # Files -----------------------------------------------------------------------
-SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
+SRC_FILES = $(SRC_DIR)/ift.c\
+			$(SRC_DIR)/iftArgs.c\
+			$(SRC_DIR)/iftMetrics.c\
+			$(SRC_DIR)/iftSICLE.c
+#$(wildcard $(SRC_DIR)/*.c)
+
 DEMO_FILES = $(wildcard $(DEMO_DIR)/*.c)
 OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_FILES))
 
@@ -107,11 +112,11 @@ lib: status obj
 	@echo "\n----- Library was successfully built\n"
 
 obj:
-	@make -j $(OBJ_FILES)
+	@make $(OBJ_FILES)
 	@echo "\n----- All sources were compiled\n"
 
 demo:
-	@make -j $(patsubst %.c, %, $(DEMO_FILES))
+	@make $(patsubst %.c, %, $(DEMO_FILES))
 	@echo "\n----- All demos were compiled\n"
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c

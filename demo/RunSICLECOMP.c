@@ -122,25 +122,20 @@ void readSICLEArgs
 {
 	(*sargs) = iftCreateSICLEArgs();
 
-	(*sargs)->use_diag = true;
-	(*sargs)->use_dift = true;
-	(*sargs)->n0 = 3000;
-	(*sargs)->irreg = 0.12;
-	(*sargs)->adhr = 12;
-	(*sargs)->connopt = IFT_SICLE_CONN_FSUM;
-	(*sargs)->critopt = IFT_SICLE_CRIT_MAXSC;
+	(*sargs)->use_diag = !iftExistArg(args, "no-diag");
 
-	if(iftExistArg(args, "objsm") == true)
+	if(iftExistArg(args, "max-iters") == true)
 	{
-		(*sargs)->alpha = 2.0;
-		(*sargs)->max_iters = 2;
-		(*sargs)->penopt = IFT_SICLE_PEN_BOBS;
+		if(iftHasArgVal(args, "max-iters") == true) 
+		{ (*sargs)->max_iters = atoi(iftGetArg(args, "max-iters")); }
+		else { iftError("No maximum number of iterations was given", __func__); }
 	}
-	else
+
+	if(iftExistArg(args, "n0") == true)
 	{
-		(*sargs)->alpha = 0.0;
-		(*sargs)->max_iters = 7;
-		(*sargs)->penopt = IFT_SICLE_PEN_NONE;
+		if(iftHasArgVal(args, "n0") == true) 
+		{ (*sargs)->n0 = atoi(iftGetArg(args, "n0")); }
+		else { iftError("No initial quantity of seeds was given", __func__); }
 	}
 
 	if(iftExistArg(args, "nf") == true)
@@ -149,37 +144,154 @@ void readSICLEArgs
 		{ (*sargs)->nf = atoi(iftGetArg(args, "nf")); }
 		else { iftError("No final quantity of superspels was given", __func__); }
 	}
+
+	if(iftExistArg(args, "irreg") == true)
+	{
+		if(iftHasArgVal(args, "irreg") == true) 
+		{ (*sargs)->irreg = atof(iftGetArg(args, "irreg")); }
+		else { iftError("No compacity factor was given", __func__); }
+	}
+
+	if(iftExistArg(args, "adhr") == true)
+	{
+		if(iftHasArgVal(args, "adhr") == true) 
+		{ (*sargs)->adhr = atoi(iftGetArg(args, "adhr")); }
+		else { iftError("No boundary adherence factor was given", __func__); }
+	}
+
+	if(iftExistArg(args, "alpha") == true)
+	{
+		if(iftHasArgVal(args, "alpha") == true) 
+		{ (*sargs)->alpha = atof(iftGetArg(args, "alpha")); }
+		else { iftError("No alpha fator was given", __func__); }
+	}
+
+	if(iftExistArg(args, "sampl-opt") == true)
+	{
+		if(iftHasArgVal(args, "sampl-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "sampl-opt");
+
+	    if(iftCompareStrings(VAL, "grid"))
+	    { (*sargs)->samplopt = IFT_SICLE_SAMPL_GRID; }
+		else if(iftCompareStrings(VAL, "rnd"))
+	    { (*sargs)->samplopt = IFT_SICLE_SAMPL_RND; }
+		else if(iftCompareStrings(VAL, "custom"))
+	    { (*sargs)->samplopt = IFT_SICLE_SAMPL_CUSTOM; }
+	    else iftError("Unknown seed oversampling option", __func__);
+		}
+		else { iftError("No seed oversampling option was given", __func__); }	
+	}
+
+	if(iftExistArg(args, "conn-opt") == true)
+	{
+		if(iftHasArgVal(args, "conn-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "conn-opt");
+
+	    if(iftCompareStrings(VAL, "fmax"))
+	    { (*sargs)->connopt = IFT_SICLE_CONN_FMAX; }
+		else if(iftCompareStrings(VAL, "fsum"))
+	    { (*sargs)->connopt = IFT_SICLE_CONN_FSUM; }
+		else if(iftCompareStrings(VAL, "custom"))
+	    { (*sargs)->connopt = IFT_SICLE_CONN_CUSTOM; }
+	    else iftError("Unknown IFT connectivity function option", __func__);
+		}
+		else { iftError("No IFT connectivity function was given", __func__); }	
+	}
+
+	if(iftExistArg(args, "crit-opt") == true)
+	{
+		if(iftHasArgVal(args, "crit-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "crit-opt");
+
+			if(iftCompareStrings(VAL, "size"))
+	    { (*sargs)->critopt = IFT_SICLE_CRIT_SIZE; }
+	    else if(iftCompareStrings(VAL, "minsc"))
+	    { (*sargs)->critopt = IFT_SICLE_CRIT_MINSC; }
+		  else if(iftCompareStrings(VAL, "maxsc"))
+	    { (*sargs)->critopt = IFT_SICLE_CRIT_MAXSC; }
+		  else if(iftCompareStrings(VAL, "spread"))
+	    { (*sargs)->critopt = IFT_SICLE_CRIT_SPREAD; }
+		  else if(iftCompareStrings(VAL, "custom"))
+	    { (*sargs)->critopt = IFT_SICLE_CRIT_CUSTOM; }
+	    else iftError("Unknown seed removal criterion", __func__);
+		}
+		else { iftError("No seed removal criterion was given", __func__); }	
+	}
+
+	if(iftExistArg(args, "pen-opt") == true)
+	{
+		if(iftHasArgVal(args, "pen-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "pen-opt");
+
+	    if(iftCompareStrings(VAL, "obj"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_OBJ; }
+		  else if(iftCompareStrings(VAL, "bord"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_BORD; }
+		  else if(iftCompareStrings(VAL, "none"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_NONE; }
+		  else if(iftCompareStrings(VAL, "osb"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_OSB; }
+		  else if(iftCompareStrings(VAL, "bobs"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_BOBS; }
+		  else if(iftCompareStrings(VAL, "custom"))
+	    { (*sargs)->penopt = IFT_SICLE_PEN_CUSTOM; }
+	    else iftError("Unknown seed removal criterion", __func__);
+		}
+		else { iftError("No seed removal criterion was given", __func__); }	
+	}
+
+	if(iftExistArg(args, "opt-opt") == true)
+	{
+		if(iftHasArgVal(args, "opt-opt") == true)
+		{
+			const char *VAL = iftGetArg(args, "opt-opt");
+
+	    if(iftCompareStrings(VAL, "none"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_NONE; }
+		else if(iftCompareStrings(VAL, "dift"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_DIFT; }
+		else if(iftCompareStrings(VAL, "bift"))
+	    { (*sargs)->optopt = IFT_SICLE_OPT_BIFT; }
+	    else iftError("Unknown IFT optimization option", __func__);
+		}
+		else { iftError("No IFT optimization option was given", __func__); }	
+	}
 	
 	if(iftExistArg(args, "ni") == true)
-	{
-	    if(iftHasArgVal(args, "ni") == true)
-	    {
-	      const char *VAL;
-	      char *tmp, *tok;
-	      int i;
-	      iftSet *vals;
+  {
+    if(iftHasArgVal(args, "ni") == true)
+    {
+      const char *VAL;
+      char *tmp, *tok;
+      int i;
+      iftSet *vals;
 
-	      vals = NULL;
-	      VAL = iftGetArg(args, "ni");
-	      tmp = iftCopyString(VAL);
-	      tok = strtok(tmp, ",");
+      vals = NULL;
+      VAL = iftGetArg(args, "ni");
+      tmp = iftCopyString(VAL);
+      tok = strtok(tmp, ",");
 
-	      i = 0;
-	      while(tok != NULL)
-	      {
-	        iftInsertSet(&vals, atoi(tok));
-	        tok = strtok(NULL, ",");
-	        ++i;
-	     	}
-	      free(tmp);
-	      if(vals == NULL) { iftError("No list of Ni values was provided", __func__); }
+      i = 0;
+      while(tok != NULL)
+      {
+        iftInsertSet(&vals, atoi(tok));
+        tok = strtok(NULL, ",");
+        ++i;
+     	}
+      free(tmp);
+      if(vals == NULL) { iftError("No list of Ni values was provided", __func__); }
 
-	      (*sargs)->user_ni = iftCreateIntArray(i);
-	      while(vals != NULL)
-	      { (*sargs)->user_ni->val[--i] = iftRemoveSet(&vals);}
-	    }
-	    else { iftError("No list of Ni values was provided", __func__); }
-	} 
+      (*sargs)->user_ni = iftCreateIntArray(i);
+      while(vals != NULL)
+      { (*sargs)->user_ni->val[--i] = iftRemoveSet(&vals);}
+    }
+    else { iftError("No list of Ni values was provided", __func__); }
+  }
+  
 }
 
 void usage()

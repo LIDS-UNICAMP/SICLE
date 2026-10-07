@@ -734,7 +734,7 @@ void iftWriteVolumeAsSingleVideoFolder
 iftBMap *iftGetBorderMap
 (const iftImage *label);
 
-inline float iftEuclDistance
+static inline float iftEuclDistance
 (const float *const u, const float *const v, const int n)
 {
   float dist = 0;
@@ -744,7 +744,7 @@ inline float iftEuclDistance
   return sqrtf(dist);
 }
 
-inline float iftFastNatPow
+static inline float iftFastNatPow
 (float base, int exp)
 {
     #if IFT_DEBUG

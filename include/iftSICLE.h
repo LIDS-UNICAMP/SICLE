@@ -53,10 +53,16 @@ typedef enum ift_sicle_crit
 	IFT_SICLE_CRIT_CUSTOM, // Custom relevance function
 } iftSICLECrit;
 
+typedef enum ift_sicle_opt
+{
+  IFT_SICLE_OPT_NONE, // Sequential IFTs
+  IFT_SICLE_OPT_DIFT, // Differential IFTs
+  IFT_SICLE_OPT_BIFT, // Boundary-restricted IFT
+} iftSICLEOpt;
+
 typedef struct ift_sicle_args
 {
 	bool use_diag; // Flag: use 8- or 26-neighborhood. Default: true
-  bool use_dift; // Flag: use differential computation. Default: true
 	int n0; // Initial quantity of seeds. Default: 3000
 	int nf; // Final quantity of superspels. Default: 200
 	int max_iters; // Maximum number of iterations for segmentation. Default: 5
@@ -68,6 +74,7 @@ typedef struct ift_sicle_args
 	iftSICLEConn connopt; // Option: IFT connectivity function. Default: FMAX
 	iftSICLECrit critopt; // Option: Seed removal criterion. Default: MINSC
   iftSICLEPen penopt; // Option: Seed relevance penalization. Default: NONE
+  iftSICLEOpt optopt; // Option: IFT computation optimization. Default: DIFT
 } iftSICLEArgs;
 
 typedef struct ift_sicle_alg iftSICLE;
